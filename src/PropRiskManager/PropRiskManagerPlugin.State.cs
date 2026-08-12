@@ -19,15 +19,18 @@ public sealed partial class PropRiskManagerPlugin
     {
         _stateAccountNumber = Account.Number;
         _settings = LocalStorage.GetObject<PluginSettings>(SettingsKey(_stateAccountNumber), LocalStorageScope.Type) ?? new PluginSettings();
-        _settings.EnsurePartialExitDefaults();
+        _settings.EnsureDefaults(Account.Balance);
 
+        var tradingDay = GetGuardianTradingDay(Server.TimeInUtc);
         _runtimeState = LocalStorage.GetObject<AccountRuntimeState>(RuntimeKey(_stateAccountNumber), LocalStorageScope.Type)
-            ?? AccountStateManager.Create(_stateAccountNumber, Server.Time.Date, Account.Balance, Account.Equity);
+            ?? AccountStateManager.Create(_stateAccountNumber, tradingDay, Account.Balance, Account.Equity);
 
         if (_runtimeState.AccountNumber != _stateAccountNumber)
-            _runtimeState = AccountStateManager.Create(_stateAccountNumber, Server.Time.Date, Account.Balance, Account.Equity);
+            _runtimeState = AccountStateManager.Create(_stateAccountNumber, tradingDay, Account.Balance, Account.Equity);
 
         _runtimeState.PositionAutomation ??= new Dictionary<int, PositionAutomationState>();
+        if (_runtimeState.DailyEquityPeak <= 0)
+            _runtimeState.DailyEquityPeak = Math.Max(_runtimeState.DayStartEquity, Account.Equity);
     }
 
     private void SaveAccountState()
@@ -43,7 +46,11 @@ public sealed partial class PropRiskManagerPlugin
 
     private void UpdateRuntimeState()
     {
-        AccountStateManager.Update(_runtimeState, Server.Time.Date, Account.Balance, Account.Equity);
+        AccountStateManager.Update(
+            _runtimeState,
+            GetGuardianTradingDay(Server.TimeInUtc),
+            Account.Balance,
+            Account.Equity);
     }
 
     private void CaptureSettingsFromUi()
@@ -51,6 +58,7 @@ public sealed partial class PropRiskManagerPlugin
         CaptureTradeSettingsFromUi();
         CaptureManagementSettingsFromUi();
         CapturePartialExitSettingsFromUi();
+        CapturePropFirmSettingsFromUi();
     }
 
     private void ApplySettingsToUi()
@@ -58,6 +66,7 @@ public sealed partial class PropRiskManagerPlugin
         ApplyTradeSettingsToUi();
         ApplyManagementSettingsToUi();
         ApplyPartialExitSettingsToUi();
+        ApplyPropFirmSettingsToUi();
     }
 
     private static string SettingsKey(int accountNumber) => $"PRM Settings {accountNumber}";
