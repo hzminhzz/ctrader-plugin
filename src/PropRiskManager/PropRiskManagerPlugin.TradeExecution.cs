@@ -271,7 +271,12 @@ public sealed partial class PropRiskManagerPlugin
 
         var maxRisk = ParseNonNegative(_maxRiskPercent.Text, 5.0);
         var maxSpread = ParseNonNegative(_maxSpreadPips.Text, 0);
-        var gate = PreTradeRiskGate.Evaluate(_symbol, plan, maxSpread, maxRisk);
+        var gate = PreTradeRiskGate.Evaluate(
+            _symbol,
+            plan,
+            maxSpread,
+            maxRisk,
+            _settings.PropFirm.MaxLotsPerTrade);
         if (!gate.Allowed)
         {
             _status.Text = "BLOCKED: " + gate.Reason;
@@ -285,10 +290,28 @@ public sealed partial class PropRiskManagerPlugin
                 result = ExecuteMarketOrder(tradeType, _symbol.Name, plan.VolumeInUnits, Label, plan.StopLossPips, plan.TakeProfitPips);
                 break;
             case OrderKind.Limit:
-                result = PlaceLimitOrder(tradeType, _symbol.Name, plan.VolumeInUnits, plan.EntryPrice, Label, plan.StopLossPips, plan.TakeProfitPips);
+                result = PlaceLimitOrder(
+                    tradeType,
+                    _symbol.Name,
+                    plan.VolumeInUnits,
+                    plan.EntryPrice,
+                    Label,
+                    plan.StopLossPips,
+                    plan.TakeProfitPips,
+                    ProtectionType.Relative,
+                    null);
                 break;
             case OrderKind.Stop:
-                result = PlaceStopOrder(tradeType, _symbol.Name, plan.VolumeInUnits, plan.EntryPrice, Label, plan.StopLossPips, plan.TakeProfitPips);
+                result = PlaceStopOrder(
+                    tradeType,
+                    _symbol.Name,
+                    plan.VolumeInUnits,
+                    plan.EntryPrice,
+                    Label,
+                    plan.StopLossPips,
+                    plan.TakeProfitPips,
+                    ProtectionType.Relative,
+                    null);
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
