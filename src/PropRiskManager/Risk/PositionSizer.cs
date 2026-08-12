@@ -19,6 +19,7 @@ public static class PositionSizer
         double balance,
         double freeMargin,
         double commissionPerLotRoundTrip,
+        Func<double, double>? roundTripCommissionEstimator = null,
         RoundingMode roundingMode = RoundingMode.Down)
     {
         if (riskInput <= 0)
@@ -44,35 +45,40 @@ public static class PositionSizer
             _ => throw new ArgumentOutOfRangeException(nameof(riskMode))
         };
 
-        double rawVolume;
+        double CommissionForVolume(double volumeInUnits)
+        {
+            if (roundTripCommissionEstimator != null)
+                return Math.Max(0, roundTripCommissionEstimator(volumeInUnits));
+
+            var lotsForCommission = symbol.VolumeInUnitsToQuantity(volumeInUnits);
+            return Math.Max(0, commissionPerLotRoundTrip) * lotsForCommission;
+        }
+
+        double TotalRisk(double volumeInUnits)
+            => symbol.AmountRisked(volumeInUnits, stopLossPips) + CommissionForVolume(volumeInUnits);
+
+        double volume;
         if (riskMode == RiskMode.FixedLots)
         {
-            rawVolume = symbol.QuantityToVolumeInUnits(riskInput);
+            var rawVolume = symbol.QuantityToVolumeInUnits(riskInput);
+            volume = symbol.NormalizeVolumeInUnits(rawVolume, roundingMode);
         }
         else
         {
             if (riskBudget <= 0)
                 throw new ArgumentException("Risk budget must be positive.", nameof(riskInput));
 
-            var commissionPerUnit = symbol.LotSize > 0
-                ? Math.Max(0, commissionPerLotRoundTrip) / symbol.LotSize
-                : 0.0;
-            var riskPerUnit = stopLossPips * symbol.PipValue + commissionPerUnit;
-            if (riskPerUnit <= 0)
-                throw new InvalidOperationException("Unable to calculate risk per unit for this symbol.");
-
-            rawVolume = riskBudget / riskPerUnit;
+            volume = FindHighestVolumeWithinRisk(symbol, riskBudget, TotalRisk, roundingMode);
         }
 
-        var volume = symbol.NormalizeVolumeInUnits(rawVolume, roundingMode);
         if (volume < symbol.VolumeInUnitsMin)
             throw new InvalidOperationException("Calculated volume is below the broker minimum.");
         if (volume > symbol.VolumeInUnitsMax)
             volume = symbol.VolumeInUnitsMax;
 
         var lots = symbol.VolumeInUnitsToQuantity(volume);
-        var commissionAmount = Math.Max(0, commissionPerLotRoundTrip) * lots;
-        var riskAmount = symbol.AmountRisked(volume, stopLossPips) + commissionAmount;
+        var commissionAmount = CommissionForVolume(volume);
+        var riskAmount = TotalRisk(volume);
         var referenceCapital = riskMode switch
         {
             RiskMode.PercentEquity => equity,
@@ -112,5 +118,49 @@ public static class PositionSizer
             QuantityLots = lots,
             RewardRiskRatio = takeProfitPips.HasValue ? takeProfitPips.Value / stopLossPips : 0
         };
+    }
+
+    private static double FindHighestVolumeWithinRisk(
+        Symbol symbol,
+        double riskBudget,
+        Func<double, double> totalRisk,
+        RoundingMode roundingMode)
+    {
+        var min = symbol.VolumeInUnitsMin;
+        var max = symbol.VolumeInUnitsMax;
+        var step = symbol.VolumeInUnitsStep;
+
+        if (min <= 0 || max < min || step <= 0)
+            throw new InvalidOperationException("Symbol volume constraints are invalid.");
+
+        if (totalRisk(min) > riskBudget)
+            throw new InvalidOperationException("Calculated volume is below the broker minimum.");
+
+        if (totalRisk(max) <= riskBudget)
+            return max;
+
+        var maxSteps = (long)Math.Floor((max - min) / step);
+        long low = 0;
+        long high = maxSteps;
+        var best = min;
+
+        while (low <= high)
+        {
+            var mid = low + (high - low) / 2;
+            var candidate = symbol.NormalizeVolumeInUnits(min + mid * step, roundingMode);
+            var candidateRisk = totalRisk(candidate);
+
+            if (candidateRisk <= riskBudget)
+            {
+                best = candidate;
+                low = mid + 1;
+            }
+            else
+            {
+                high = mid - 1;
+            }
+        }
+
+        return best;
     }
 }

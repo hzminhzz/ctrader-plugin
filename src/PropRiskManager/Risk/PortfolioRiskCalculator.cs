@@ -13,7 +13,8 @@ public static class PortfolioRiskCalculator
         IEnumerable<Position> positions,
         IEnumerable<PendingOrder> pendingOrders,
         Func<string, Symbol> getSymbol,
-        double commissionPerLotRoundTrip)
+        double commissionPerLotRoundTrip,
+        Func<Symbol, double, double, double, double>? automaticRoundTripCommission = null)
     {
         var risk = 0.0;
         var unprotected = 0;
@@ -33,7 +34,13 @@ public static class PortfolioRiskCalculator
                 : Math.Max(0, position.StopLoss.Value - symbol.Ask) / symbol.PipSize;
 
             risk += symbol.AmountRisked(position.VolumeInUnits, distancePips);
-            risk += commissionPerLot * symbol.VolumeInUnitsToQuantity(position.VolumeInUnits) / 2.0;
+            risk += automaticRoundTripCommission != null
+                ? automaticRoundTripCommission(
+                    symbol,
+                    position.VolumeInUnits,
+                    position.TradeType == TradeType.Buy ? symbol.Bid : symbol.Ask,
+                    position.StopLoss.Value) / 2.0
+                : commissionPerLot * symbol.VolumeInUnitsToQuantity(position.VolumeInUnits) / 2.0;
         }
 
         foreach (var order in pendingOrders)
@@ -46,7 +53,13 @@ public static class PortfolioRiskCalculator
             }
 
             risk += symbol.AmountRisked(order.VolumeInUnits, order.StopLossPips.Value);
-            risk += commissionPerLot * symbol.VolumeInUnitsToQuantity(order.VolumeInUnits);
+
+            var stopPrice = order.TradeType == TradeType.Buy
+                ? order.TargetPrice - order.StopLossPips.Value * symbol.PipSize
+                : order.TargetPrice + order.StopLossPips.Value * symbol.PipSize;
+            risk += automaticRoundTripCommission != null
+                ? automaticRoundTripCommission(symbol, order.VolumeInUnits, order.TargetPrice, stopPrice)
+                : commissionPerLot * symbol.VolumeInUnitsToQuantity(order.VolumeInUnits);
         }
 
         return new PortfolioRiskSnapshot(risk, unprotected);

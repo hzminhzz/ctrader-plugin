@@ -8,6 +8,7 @@ public sealed class PluginSettings
     public bool SafeDefaultsApplied { get; set; }
     public RiskMode RiskMode { get; set; } = RiskMode.PercentEquity;
     public double RiskValue { get; set; } = 1.0;
+    public bool UseAutomaticCommission { get; set; } = true;
     public double CommissionPerLotRoundTrip { get; set; }
     public bool UseEntryPrice { get; set; }
     public bool UseStopLoss { get; set; } = true;
