@@ -69,6 +69,12 @@ public static class PositionManagementService
             var symbol = getSymbol(position.SymbolName);
             var closeVolume = position.VolumeInUnits * closePercent / 100.0;
             var result = CloseVolume(position, closeVolume, symbol);
+            if (result == null)
+            {
+                lastError = $"Position {position.Id}: requested partial close rounds to no volume change.";
+                continue;
+            }
+
             if (result.IsSuccessful)
                 succeeded++;
             else
@@ -78,7 +84,7 @@ public static class PositionManagementService
         return new ManagementResult(attempted, succeeded, lastError);
     }
 
-    public static TradeResult CloseVolume(Position position, double closeVolumeInUnits, Symbol symbol)
+    public static TradeResult? CloseVolume(Position position, double closeVolumeInUnits, Symbol symbol)
     {
         if (closeVolumeInUnits <= 0)
             throw new ArgumentOutOfRangeException(nameof(closeVolumeInUnits));
@@ -95,7 +101,7 @@ public static class PositionManagementService
             return position.Close();
 
         if (normalizedRemaining >= position.VolumeInUnits)
-            return position.ModifyVolume(position.VolumeInUnits);
+            return null;
 
         return position.ModifyVolume(normalizedRemaining);
     }
