@@ -1,12 +1,13 @@
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using PropRiskManager.Risk;
 using PropRiskManager.State;
-using Xunit;
 
 namespace PropRiskManager.Tests;
 
+[TestClass]
 public sealed class PropFirmGuardianEngineTests
 {
-    [Fact]
+    [TestMethod]
     public void StaticTotalDrawdown_BlocksAtFloor()
     {
         var settings = BaseSettings();
@@ -16,13 +17,13 @@ public sealed class PropFirmGuardianEngineTests
 
         var result = PropFirmGuardianEngine.Evaluate(settings, runtime, 90_000);
 
-        Assert.True(result.ShouldBlockTrading);
-        Assert.True(result.HardDrawdownBreach);
-        Assert.Equal("BREACH", result.Status);
-        Assert.Equal(90_000, result.TotalFloor, 6);
+        Assert.IsTrue(result.ShouldBlockTrading);
+        Assert.IsTrue(result.HardDrawdownBreach);
+        Assert.AreEqual("BREACH", result.Status);
+        Assert.AreEqual(90_000, result.TotalFloor, 0.000001);
     }
 
-    [Fact]
+    [TestMethod]
     public void StaticDailyDrawdown_UsesDayStartEquity()
     {
         var settings = BaseSettings();
@@ -33,12 +34,12 @@ public sealed class PropFirmGuardianEngineTests
 
         var result = PropFirmGuardianEngine.Evaluate(settings, runtime, 95_000);
 
-        Assert.True(result.HardDrawdownBreach);
-        Assert.Equal(95_000, result.DailyFloor, 6);
-        Assert.Equal(5, result.DailyDrawdownPercent, 6);
+        Assert.IsTrue(result.HardDrawdownBreach);
+        Assert.AreEqual(95_000, result.DailyFloor, 0.000001);
+        Assert.AreEqual(5, result.DailyDrawdownPercent, 0.000001);
     }
 
-    [Fact]
+    [TestMethod]
     public void TrailingTotalDrawdown_UsesEquityHighWaterMark()
     {
         var settings = BaseSettings();
@@ -50,11 +51,11 @@ public sealed class PropFirmGuardianEngineTests
 
         var result = PropFirmGuardianEngine.Evaluate(settings, runtime, 98_999);
 
-        Assert.True(result.HardDrawdownBreach);
-        Assert.Equal(99_000, result.TotalFloor, 6);
+        Assert.IsTrue(result.HardDrawdownBreach);
+        Assert.AreEqual(99_000, result.TotalFloor, 0.000001);
     }
 
-    [Fact]
+    [TestMethod]
     public void ProfitTarget_IsSoftTradingLock_NotHardDrawdownBreach()
     {
         var settings = BaseSettings();
@@ -66,13 +67,13 @@ public sealed class PropFirmGuardianEngineTests
 
         var result = PropFirmGuardianEngine.Evaluate(settings, runtime, 110_000);
 
-        Assert.True(result.ShouldBlockTrading);
-        Assert.False(result.HardDrawdownBreach);
-        Assert.True(result.ProfitTargetReached);
-        Assert.Equal("TARGET", result.Status);
+        Assert.IsTrue(result.ShouldBlockTrading);
+        Assert.IsFalse(result.HardDrawdownBreach);
+        Assert.IsTrue(result.ProfitTargetReached);
+        Assert.AreEqual("TARGET", result.Status);
     }
 
-    [Fact]
+    [TestMethod]
     public void DailyProfitCap_IsPercentageOfProfitTargetAmount()
     {
         var settings = BaseSettings();
@@ -87,13 +88,13 @@ public sealed class PropFirmGuardianEngineTests
 
         var result = PropFirmGuardianEngine.Evaluate(settings, runtime, 103_000);
 
-        Assert.True(result.ShouldBlockTrading);
-        Assert.False(result.HardDrawdownBreach);
-        Assert.True(result.DailyProfitCapReached);
-        Assert.Equal(3_000, result.DailyProfitCapAmount, 6);
+        Assert.IsTrue(result.ShouldBlockTrading);
+        Assert.IsFalse(result.HardDrawdownBreach);
+        Assert.IsTrue(result.DailyProfitCapReached);
+        Assert.AreEqual(3_000, result.DailyProfitCapAmount, 0.000001);
     }
 
-    [Fact]
+    [TestMethod]
     public void MissingInitialBalance_DoesNotBlock()
     {
         var settings = BaseSettings();
@@ -102,9 +103,9 @@ public sealed class PropFirmGuardianEngineTests
 
         var result = PropFirmGuardianEngine.Evaluate(settings, runtime, 50_000);
 
-        Assert.False(result.ShouldBlockTrading);
-        Assert.False(result.HardDrawdownBreach);
-        Assert.Equal("NOT CONFIGURED", result.Status);
+        Assert.IsFalse(result.ShouldBlockTrading);
+        Assert.IsFalse(result.HardDrawdownBreach);
+        Assert.AreEqual("NOT CONFIGURED", result.Status);
     }
 
     private static PropFirmSettings BaseSettings() => new()
