@@ -17,8 +17,8 @@ public sealed partial class PropRiskManagerPlugin
 
     private void BuildTradingStatsPanel()
     {
-        var block = Asp.SymbolTab.AddBlock("Trading Stats");
-        block.Height = 390;
+        var block = Asp.SymbolTab.AddBlock("Trading Statistics");
+        ConfigureAspBlock(block, 390);
         var root = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(8) };
 
         root.AddChild(new TextBlock
