@@ -21,6 +21,10 @@ public sealed class PropFirmSettings
     public int MinimumTradingDays { get; set; } = 5;
     public double MaxLotsPerTrade { get; set; } = 100;
 
+    public bool PreTradeLossRoomGuardEnabled { get; set; } = true;
+    public double SafetyBufferPercent { get; set; } = 0.5;
+    public bool BlockIfExposureHasNoStop { get; set; } = true;
+
     public bool AutoCloseOnDrawdownBreach { get; set; } = true;
     public double ResetUtcOffsetHours { get; set; }
     public int ResetHour { get; set; }
