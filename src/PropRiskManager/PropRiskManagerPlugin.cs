@@ -63,7 +63,6 @@ public sealed class PropRiskManagerPlugin : Plugin
     private void BuildSymbolTabPanel()
     {
         var block = Asp.SymbolTab.AddBlock("Prop Risk Manager");
-        block.IsExpanded = true;
         block.Height = 440;
 
         var root = new StackPanel
@@ -101,7 +100,7 @@ public sealed class PropRiskManagerPlugin : Plugin
         priceRow.AddChild(_orderTypeInfo, 0, 2);
         root.AddChild(priceRow);
 
-        var riskRow = new Grid(1, 3) { Margin = new Thickness(0, 2, 0, 2) };
+        var riskRow = new Grid(1, 4) { Margin = new Thickness(0, 2, 0, 2) };
         _riskValue = new TextBox { Text = "1.0", Height = 24 };
         _riskMode = new ComboBox { Height = 24 };
         _riskMode.AddItem("% Equity");
@@ -111,10 +110,11 @@ public sealed class PropRiskManagerPlugin : Plugin
         _riskMode.AddItem("Fixed Lots");
         _riskMode.SelectedItem = "% Equity";
         _sizing = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
-        riskRow.AddChild(_riskValue, 0, 0);
-        riskRow.AddChild(_riskMode, 0, 1);
-        riskRow.AddChild(_sizing, 0, 2);
-        root.AddChild(LabeledRow("Risk", riskRow));
+        riskRow.AddChild(new TextBlock { Text = "Risk", VerticalAlignment = VerticalAlignment.Center }, 0, 0);
+        riskRow.AddChild(_riskValue, 0, 1);
+        riskRow.AddChild(_riskMode, 0, 2);
+        riskRow.AddChild(_sizing, 0, 3);
+        root.AddChild(riskRow);
 
         _commissionPerLot = AddInput(root, "Commission / lot", "0");
 
@@ -156,14 +156,6 @@ public sealed class PropRiskManagerPlugin : Plugin
         row.AddChild(box, 0, 1);
         root.AddChild(row);
         return box;
-    }
-
-    private static Grid LabeledRow(string label, Control control)
-    {
-        var row = new Grid(1, 2);
-        row.AddChild(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center }, 0, 0);
-        row.AddChild(control, 0, 1);
-        return row;
     }
 
     private void OnActiveFrameChanged(ActiveFrameChangedEventArgs args) => BindToActiveChart();
