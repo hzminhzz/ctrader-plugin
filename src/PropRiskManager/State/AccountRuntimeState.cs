@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
 using PropRiskManager.Domain;
-
 namespace PropRiskManager.State;
-
 public sealed class AccountRuntimeState
 {
     public int AccountNumber { get; set; }
@@ -18,4 +16,5 @@ public sealed class AccountRuntimeState
     public Dictionary<int, PositionAutomationState> PositionAutomation { get; set; } = new();
     public Dictionary<int, SmartPositionState> SmartPositions { get; set; } = new();
     public List<SmartAlertEvent> SmartAlertHistory { get; set; } = new();
+    public Dictionary<string, SmartManagementProfileLayer> SmartManagementProfiles { get; set; } = new();
 }
