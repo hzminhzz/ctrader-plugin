@@ -59,6 +59,9 @@ public sealed partial class PropRiskManagerPlugin : Plugin
 
     protected override void OnTimer()
     {
+        if (_chart == null)
+            BindToActiveChart();
+
         RefreshMarketInfo();
         UpdateLineVisibility();
         CapturePropFirmSettingsFromUi();
