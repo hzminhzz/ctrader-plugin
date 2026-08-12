@@ -2,7 +2,7 @@
 
 Original native cTrader plugin implementing the supplied Risk Manager Pro-style workflow with independently written logic and public cTrader APIs.
 
-> Status: **development / demo validation only**. The project is compiled and checked in CI, and pure prop-risk logic has unit tests. It has not yet completed hands-on cTrader Desktop smoke testing on the target broker/prop-firm account.
+> Status: **development / demo validation only**. The project compiles in CI, the pure prop-risk/state test suite passes, and CI publishes an installable `PropRiskManager.algo` artifact. It has not yet completed hands-on cTrader Desktop smoke testing on the target broker/prop-firm account.
 
 ## Implemented
 
@@ -76,6 +76,17 @@ Original native cTrader plugin implementing the supplied Risk Manager Pro-style 
 - Average duration and best/worst day
 - Partial closes aggregated by PositionId so they do not inflate trade count
 - Break-even positions excluded from win/loss classification
+
+## CI status
+
+The current draft-PR pipeline validates:
+
+1. cTrader plugin restore/build
+2. pure guardian/state MSTest suite
+3. package rename from the compiler-emitted `src.algo` to `PropRiskManager.algo`
+4. GitHub Actions artifact publication as `PropRiskManager-algo`
+
+The first fully green package pipeline is build run **119** on the feature branch.
 
 ## Install a CI build
 
