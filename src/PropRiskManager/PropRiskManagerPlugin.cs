@@ -32,6 +32,7 @@ public sealed partial class PropRiskManagerPlugin : Plugin
         BuildPositionManagementPanel();
         BuildPartialTakeProfitPanel();
         BuildPartialStopLossPanel();
+        BuildTradingStatsPanel();
 
         LoadAccountState();
         ApplySettingsToUi();
@@ -41,6 +42,7 @@ public sealed partial class PropRiskManagerPlugin : Plugin
 
         BindToActiveChart();
         RefreshPositionManagement();
+        RefreshTradingStats(true);
         Timer.Start(TimeSpan.FromMilliseconds(250));
     }
 
@@ -63,6 +65,7 @@ public sealed partial class PropRiskManagerPlugin : Plugin
         RunAdvancedProtection();
         RunPartialExitAutomation();
         RefreshPositionManagement();
+        RefreshTradingStats();
 
         if (Server.Time >= _lastPersistTime.AddSeconds(2))
         {
