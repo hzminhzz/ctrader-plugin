@@ -162,6 +162,7 @@ Do not start with a funded account. Use a demo account and validate in this orde
 - Commission uses the configured per-lot estimate for sizing/exposure. Exact broker-specific commission treatment must be verified on the target account.
 - Automatic liquidation is a local desktop safety layer. Gaps, disconnections, broker rejection or process shutdown can prevent execution at the exact threshold.
 - UI is functional but not yet the final single-window/collapsible visual match to the reference screenshots.
+- Detachable floating-window parity and final semantic color/layout polish remain post-smoke-test UI work.
 
 ## Development gates
 
