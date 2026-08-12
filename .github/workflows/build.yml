@@ -22,6 +22,8 @@ jobs:
         run: dotnet build src/PropRiskManager/PropRiskManager.csproj --configuration Release --no-restore
       - name: Test
         run: dotnet test tests/PropRiskManager.Tests/PropRiskManager.Tests.csproj --configuration Release --no-restore
+      - name: Prepare cTrader package
+        run: cp src/PropRiskManager/bin/Release/net6.0/src.algo src/PropRiskManager/bin/Release/net6.0/PropRiskManager.algo
       - name: Upload cTrader plugin
         uses: actions/upload-artifact@v4
         with:
