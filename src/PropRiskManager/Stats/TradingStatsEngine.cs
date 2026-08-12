@@ -193,7 +193,7 @@ public static class TradingStatsEngine
     }
 
     private static TradingStatsSnapshot Empty()
-        => new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "--", 0, 0,
+        => new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "--", 0, 0,
             TimeSpan.Zero, TimeSpan.Zero, TimeSpan.Zero, 0, 0);
 
     private sealed record PositionTrade(
