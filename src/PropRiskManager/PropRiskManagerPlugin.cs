@@ -4,6 +4,7 @@ using cAlgo.API;
 using cAlgo.API.Internals;
 using PropRiskManager.Domain;
 using PropRiskManager.Risk;
+using PropRiskManager.State;
 
 namespace PropRiskManager;
 
@@ -20,6 +21,11 @@ public sealed class PropRiskManagerPlugin : Plugin
     private ChartHorizontalLine? _entryLine;
     private ChartHorizontalLine? _stopLine;
     private ChartHorizontalLine? _targetLine;
+
+    private PluginSettings _settings = new();
+    private AccountRuntimeState _runtimeState = new();
+    private int _stateAccountNumber;
+    private DateTime _lastPersistTime;
 
     private TextBlock _marketInfo = null!;
     private TextBlock _orderTypeInfo = null!;
@@ -41,6 +47,8 @@ public sealed class PropRiskManagerPlugin : Plugin
     protected override void OnStart()
     {
         BuildSymbolTabPanel();
+        LoadAccountState();
+        ApplySettingsToUi();
         ChartManager.ActiveFrameChanged += OnActiveFrameChanged;
         Account.Switched += OnAccountSwitched;
         BindToActiveChart();
@@ -49,6 +57,7 @@ public sealed class PropRiskManagerPlugin : Plugin
 
     protected override void OnStop()
     {
+        SaveAccountState();
         ChartManager.ActiveFrameChanged -= OnActiveFrameChanged;
         Account.Switched -= OnAccountSwitched;
         UnbindChart();
@@ -57,7 +66,15 @@ public sealed class PropRiskManagerPlugin : Plugin
     protected override void OnTimer()
     {
         RefreshMarketInfo();
+        UpdateLineVisibility();
+        UpdateRuntimeState();
         RecalculatePreview();
+
+        if (Server.Time >= _lastPersistTime.AddSeconds(2))
+        {
+            SaveAccountState();
+            _lastPersistTime = Server.Time;
+        }
     }
 
     private void BuildSymbolTabPanel()
@@ -162,8 +179,10 @@ public sealed class PropRiskManagerPlugin : Plugin
 
     private void OnAccountSwitched(AccountSwitchedEventArgs args)
     {
-        RefreshMarketInfo();
-        RecalculatePreview();
+        SaveAccountState();
+        LoadAccountState();
+        ApplySettingsToUi();
+        BindToActiveChart();
     }
 
     private void BindToActiveChart()
@@ -213,6 +232,7 @@ public sealed class PropRiskManagerPlugin : Plugin
         _entryLine.IsInteractive = true;
         _stopLine.IsInteractive = true;
         _targetLine.IsInteractive = true;
+        UpdateLineVisibility();
     }
 
     private void ResetLines()
@@ -222,6 +242,17 @@ public sealed class PropRiskManagerPlugin : Plugin
 
         DrawInitialLines();
         RecalculatePreview();
+    }
+
+    private void UpdateLineVisibility()
+    {
+        var hidden = _drawLines.IsChecked != true;
+        if (_entryLine != null)
+            _entryLine.IsHidden = hidden;
+        if (_stopLine != null)
+            _stopLine.IsHidden = hidden;
+        if (_targetLine != null)
+            _targetLine.IsHidden = hidden;
     }
 
     private void OnChartObjectsUpdated(ChartObjectsUpdatedEventArgs args)
@@ -285,6 +316,12 @@ public sealed class PropRiskManagerPlugin : Plugin
     {
         if (_symbol == null)
             return;
+
+        if (_runtimeState.TradingBlocked)
+        {
+            _status.Text = "BLOCKED: " + _runtimeState.BlockReason;
+            return;
+        }
 
         if (!TryBuildPlan(tradeType, out var plan, out var reason))
         {
@@ -400,6 +437,78 @@ public sealed class PropRiskManagerPlugin : Plugin
             _ => RiskMode.PercentEquity
         };
     }
+
+    private void LoadAccountState()
+    {
+        _stateAccountNumber = Account.Number;
+        _settings = LocalStorage.GetObject<PluginSettings>(SettingsKey(_stateAccountNumber), LocalStorageScope.Type) ?? new PluginSettings();
+        _runtimeState = LocalStorage.GetObject<AccountRuntimeState>(RuntimeKey(_stateAccountNumber), LocalStorageScope.Type)
+            ?? AccountStateManager.Create(_stateAccountNumber, Server.Time.Date, Account.Balance, Account.Equity);
+
+        if (_runtimeState.AccountNumber != _stateAccountNumber)
+            _runtimeState = AccountStateManager.Create(_stateAccountNumber, Server.Time.Date, Account.Balance, Account.Equity);
+    }
+
+    private void SaveAccountState()
+    {
+        if (_stateAccountNumber == 0)
+            return;
+
+        CaptureSettingsFromUi();
+        LocalStorage.SetObject(SettingsKey(_stateAccountNumber), _settings, LocalStorageScope.Type);
+        LocalStorage.SetObject(RuntimeKey(_stateAccountNumber), _runtimeState, LocalStorageScope.Type);
+        LocalStorage.Flush(LocalStorageScope.Type);
+    }
+
+    private void UpdateRuntimeState()
+    {
+        AccountStateManager.Update(_runtimeState, Server.Time.Date, Account.Balance, Account.Equity);
+    }
+
+    private void CaptureSettingsFromUi()
+    {
+        _settings.RiskMode = GetRiskMode();
+        _settings.RiskValue = ParsePositive(_riskValue.Text, _settings.RiskValue);
+        _settings.CommissionPerLotRoundTrip = ParseNonNegative(_commissionPerLot.Text, _settings.CommissionPerLotRoundTrip);
+        _settings.UseEntryPrice = _useEntryPrice.IsChecked == true;
+        _settings.UseStopLoss = _useStopLoss.IsChecked == true;
+        _settings.UseTakeProfit = _useTakeProfit.IsChecked == true;
+        _settings.DrawLines = _drawLines.IsChecked == true;
+        _settings.StopLossPips = ParsePositive(_slPips.Text, _settings.StopLossPips);
+        _settings.TakeProfitPips = ParsePositive(_tpPips.Text, _settings.TakeProfitPips);
+        _settings.MaxRiskPercent = ParseNonNegative(_maxRiskPercent.Text, _settings.MaxRiskPercent);
+        _settings.MaxSpreadPips = ParseNonNegative(_maxSpreadPips.Text, _settings.MaxSpreadPips);
+    }
+
+    private void ApplySettingsToUi()
+    {
+        _riskMode.SelectedItem = RiskModeLabel(_settings.RiskMode);
+        _riskValue.Text = _settings.RiskValue.ToString(CultureInfo.InvariantCulture);
+        _commissionPerLot.Text = _settings.CommissionPerLotRoundTrip.ToString(CultureInfo.InvariantCulture);
+        _useEntryPrice.IsChecked = _settings.UseEntryPrice;
+        _useStopLoss.IsChecked = _settings.UseStopLoss;
+        _useTakeProfit.IsChecked = _settings.UseTakeProfit;
+        _drawLines.IsChecked = _settings.DrawLines;
+        _slPips.Text = _settings.StopLossPips.ToString(CultureInfo.InvariantCulture);
+        _tpPips.Text = _settings.TakeProfitPips.ToString(CultureInfo.InvariantCulture);
+        _maxRiskPercent.Text = _settings.MaxRiskPercent.ToString(CultureInfo.InvariantCulture);
+        _maxSpreadPips.Text = _settings.MaxSpreadPips.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static string RiskModeLabel(RiskMode mode)
+    {
+        return mode switch
+        {
+            RiskMode.PercentBalance => "% Balance",
+            RiskMode.PercentFreeMargin => "% Free Margin",
+            RiskMode.FixedAmount => "Fixed $",
+            RiskMode.FixedLots => "Fixed Lots",
+            _ => "% Equity"
+        };
+    }
+
+    private static string SettingsKey(int accountNumber) => $"PRM Settings {accountNumber}";
+    private static string RuntimeKey(int accountNumber) => $"PRM Runtime {accountNumber}";
 
     private static double ParsePositive(string? text, double fallback)
         => TryParsePositive(text, out var value) ? value : fallback;
