@@ -9,89 +9,100 @@ Goal: build an original cTrader native plugin with feature parity to the supplie
 - [x] Five sizing modes: % Equity, % Balance, % Free Margin, Fixed Amount, Fixed Lots
 - [x] Commission-aware position sizing
 - [x] Shared pre-trade risk gate
-- [ ] Per-account persisted settings/state
-- [ ] Account-wide runtime service independent of active chart
+- [x] Per-account persisted settings/state
+- [x] Account-wide runtime service independent of active chart
 
 Acceptance: all later modules consume the same TradePlan and account state contracts.
 
 ## Phase 2 - Smart trade execution and chart interaction
 
-- [ ] Symbol Tab execution panel matching the supplied workflow
-- [ ] Live symbol / spread / commission / pip-value display
-- [ ] BUY / SELL one-click execution
-- [ ] Optional manual entry price
-- [ ] Auto-detect Market / Limit / Stop from direction + entry price
-- [ ] SL and TP enable/disable controls
-- [ ] Draggable Entry / SL / TP chart lines
-- [ ] Live sizing and R:R preview
-- [ ] Shift+E entry-price cursor hotkey
-- [ ] Max-spread and max-risk pre-trade validation
+- [x] Symbol Tab execution panel matching the supplied workflow
+- [x] Live symbol / spread / commission / pip-value display
+- [x] BUY / SELL one-click execution
+- [x] Optional manual entry price
+- [x] Auto-detect Market / Limit / Stop from direction + entry price
+- [x] SL and TP enable/disable controls
+- [x] Draggable Entry / SL / TP chart lines
+- [x] Live sizing and R:R preview
+- [x] Shift+E entry-price cursor hotkey
+- [x] Max-spread and max-risk pre-trade validation
+- [x] Prop-firm max-lot pre-trade validation
 
 Acceptance: a planned order produces the same sizing and order type regardless of whether values are changed in the panel or by dragging chart lines.
 
 ## Phase 3 - Advanced protection and position management
 
-- [ ] Server-side trailing option
-- [ ] Custom trailing engine
-- [ ] Auto break-even trigger + offset
-- [ ] Manage all open positions account-wide, not only active chart
-- [ ] Current-symbol / all-symbol filter
-- [ ] Close All / Profit / Loss with live P&L
-- [ ] Cancel All / Buy / Sell pending orders
-- [ ] Partial close
-- [ ] Move selected scope to break-even
+- [x] Server-side trailing option
+- [x] Custom trailing engine
+- [x] Auto break-even trigger + offset
+- [x] Manage all open positions account-wide, not only active chart
+- [x] Current-symbol / all-symbol filter
+- [x] Close All / Profit / Loss with live P&L
+- [x] Cancel All / Buy / Sell pending orders
+- [x] Partial close
+- [x] Move selected scope to break-even
 
 Acceptance: changing charts cannot stop protection for already-open positions.
 
 ## Phase 4 - Partial TP / SL automation
 
-- [ ] Five configurable TP levels
-- [ ] Five configurable SL levels
-- [ ] Trigger unit: pips or % of original TP/SL distance
-- [ ] Close sizing: % original, % remaining, fixed lots
-- [ ] Idempotent trigger state per position
-- [ ] Safe normalization for broker min/step volume
-- [ ] Clean handling of oversized final levels and untradeable leftovers
+- [x] Five configurable TP levels
+- [x] Five configurable SL levels
+- [x] Trigger unit: pips or % of original TP/SL distance
+- [x] Close sizing: % original, % remaining, fixed lots
+- [x] Idempotent trigger state per position
+- [x] Safe normalization for broker min/step volume
+- [x] Clean handling of oversized final levels and untradeable leftovers
 
 Acceptance: each level fires at most once per position and never attempts an invalid broker volume.
 
 ## Phase 5 - Prop Firm Guardian
 
-- [ ] Initial-balance reference
-- [ ] Profit target
-- [ ] Daily profit cap / consistency metric
-- [ ] Daily drawdown limit
-- [ ] Maximum drawdown limit
-- [ ] Static and trailing variants
-- [ ] Broker-time daily rollover
-- [ ] Account-wide equity peak tracking
-- [ ] Floating P&L, commission and swap-aware loss calculations
-- [ ] Configurable safety buffer
-- [ ] Pre-trade block when a proposed trade exceeds remaining loss room
-- [ ] Auto-close all and cancel pending at configured breach boundary
-- [ ] Persist day-start, peak, and automation state per account
+- [x] Initial-balance reference
+- [x] Profit target
+- [x] Daily profit cap / consistency metric
+- [x] Daily drawdown limit
+- [x] Maximum drawdown limit
+- [x] Static and trailing variants
+- [x] Configurable reset timezone offset and reset hour
+- [x] Account-wide equity peak tracking
+- [x] Real-time equity-based drawdown monitoring including floating account P&L
+- [ ] Firm-specific commission/swap/reference-balance formula modes
+- [ ] Configurable safety buffer before the formal breach line
+- [ ] Pre-trade worst-case block based on remaining daily/total loss room
+- [x] Auto-close all and cancel pending at configured drawdown breach boundary
+- [x] Emergency liquidation retry throttling
+- [x] Persist day-start, peak, and automation state per account
+- [x] Max-lot pre-trade guard
+- [x] Pure guardian/state unit-test suite
 
-Acceptance: guardian formulas are unit-tested against explicit prop-firm rule examples before live use.
+Acceptance: guardian formulas are unit-tested against explicit prop-firm rule examples before live use. Exact funded-account use still requires mapping the selected firm's current rule definitions to the configurable engine.
 
 ## Phase 6 - Trading statistics and UI polish
 
-- [ ] Today / 7d / 30d / 90d / All filters
-- [ ] Symbol filter
-- [ ] Total trades, W/L/BE, win rate, net profit, profit factor, expectancy
-- [ ] Avg win/loss, avg R:R, best/worst trade
-- [ ] Max drawdown, recovery factor
-- [ ] Streaks, long/short distribution
-- [ ] Average duration, long/short duration, best/worst day
-- [ ] Theme-adaptive colors
-- [ ] Collapsible sections
-- [ ] Detachable window
+- [x] Today / 7d / 30d / 90d / All filters
+- [x] Symbol filter
+- [x] Total trades, W/L/BE, win rate, net profit, profit factor, expectancy
+- [x] Aggregate partial closes by PositionId to avoid inflated trade counts
+- [x] Exclude break-even positions from win/loss classification
+- [x] Avg win/loss, avg R:R, best/worst trade
+- [x] Max drawdown, recovery factor
+- [x] Streaks, long/short distribution
+- [x] Average duration, long/short duration, best/worst day
+- [x] Native cTrader controls inherit the active light/dark theme
+- [ ] Final semantic color/theme pass
+- [ ] Single-panel collapsible-section polish matching screenshots
+- [ ] Detachable floating window
+- [ ] Independent stats fixture tests
 
 Acceptance: stats are derived from cTrader history and match independently calculated test fixtures.
 
 ## Validation policy
 
 1. Compile after each phase before adding the next.
-2. Use demo accounts first.
-3. Keep prop-firm limits separate from normal trade-risk limits.
-4. Treat automatic close/block behavior as a local safety layer, not a broker/server guarantee.
-5. Never depend on the active chart for account-wide protection state.
+2. Run pure risk/state unit tests in CI.
+3. Use demo accounts first for trading-operation and UI validation.
+4. Keep prop-firm limits separate from normal trade-risk limits.
+5. Treat automatic close/block behavior as a local safety layer, not a broker/server guarantee.
+6. Never depend on the active chart for account-wide protection state.
+7. Do not merge the draft PR until cTrader Desktop smoke tests pass.
