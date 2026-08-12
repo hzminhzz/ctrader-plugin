@@ -9,6 +9,14 @@ public sealed record SmartAccountDashboard(int OpenPositions, double Equity, Dat
 public sealed record SmartSymbolDashboard(string SymbolName, int OpenPositions, double NetProfit);
 public sealed record SmartDashboardSnapshot(SmartAccountDashboard Account, SmartSymbolDashboard ActiveSymbol);
 
+public sealed record SmartContextualActionCard(
+    SmartCloseScope Scope,
+    string SymbolName,
+    int PositionCount,
+    double NetProfit,
+    string ActionText,
+    bool CanClose);
+
 public enum SmartCloseScope { ActiveSymbol, Account }
 
 public sealed record SmartClosePlan(SmartCloseScope Scope, string? SymbolName, IReadOnlyList<int> PositionIds)
@@ -25,6 +33,17 @@ public static class SmartDashboardEngine
         return new SmartDashboardSnapshot(
             new SmartAccountDashboard(all.Length, equity, lastUpdateUtc, SmartPositionEngine.CountArmedAlerts(smartStates)),
             new SmartSymbolDashboard(activeSymbol, scoped.Length, scoped.Sum(p => p.NetProfit)));
+    }
+
+    public static SmartContextualActionCard BuildContextualActionCard(string activeSymbol, IEnumerable<SmartDashboardPosition> positions)
+    {
+        var all = positions.ToArray();
+        var scoped = all.Where(p => string.Equals(p.SymbolName, activeSymbol, StringComparison.Ordinal)).ToArray();
+        if (scoped.Length > 0)
+            return new SmartContextualActionCard(SmartCloseScope.ActiveSymbol, activeSymbol, scoped.Length, scoped.Sum(p => p.NetProfit), $"{scoped.Length} pos / CLOSE SYMBOL", true);
+        if (all.Length > 0)
+            return new SmartContextualActionCard(SmartCloseScope.Account, activeSymbol, all.Length, all.Sum(p => p.NetProfit), $"{all.Length} pos / CLOSE ALL", true);
+        return new SmartContextualActionCard(SmartCloseScope.ActiveSymbol, activeSymbol, 0, 0, "0 pos / CLOSE SYMBOL", false);
     }
 
     public static SmartClosePlan PlanClose(SmartCloseScope scope, string activeSymbol, IEnumerable<SmartDashboardPosition> positions)
