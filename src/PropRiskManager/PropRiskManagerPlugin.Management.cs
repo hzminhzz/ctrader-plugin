@@ -150,7 +150,10 @@ public sealed partial class PropRiskManagerPlugin
             return;
 
         _lastProtectionRun = Server.Time;
-        ProtectionEngine.Apply(Positions, _settings, Symbols.GetSymbol);
+        var legacyOwnedPositions = Positions
+            .Where(position => !_runtimeState.SmartPositions.TryGetValue(position.Id, out var smartState) || !smartState.StopManagement.Enabled)
+            .ToArray();
+        ProtectionEngine.Apply(legacyOwnedPositions, _settings, Symbols.GetSymbol);
     }
 
     private void RefreshPositionManagement()

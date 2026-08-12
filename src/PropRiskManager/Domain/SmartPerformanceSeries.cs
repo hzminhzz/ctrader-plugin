@@ -5,14 +5,12 @@ using System.Linq;
 namespace PropRiskManager.Domain;
 
 public sealed record SmartPerformanceSample(DateTime SampledAtUtc, double MidPrice, double BasisPoints);
-
 public sealed class SmartPerformanceSeriesState
 {
     public string SymbolName { get; set; } = string.Empty;
     public double BaselineMidPrice { get; set; }
     public List<SmartPerformanceSample> Samples { get; set; } = new();
 }
-
 public sealed record SmartPerformanceUpdate(SmartPerformanceSeriesState State, bool AddedSample, string Diagnostic);
 
 public static class SmartPerformanceSeriesEngine
@@ -33,7 +31,14 @@ public static class SmartPerformanceSeriesEngine
         if (last != null && sampledAtUtc < last.SampledAtUtc.Add(SampleInterval)) return new SmartPerformanceUpdate(state, false, string.Empty);
         var bps = (midPrice / state.BaselineMidPrice - 1.0) * 10_000.0;
         state.Samples.Add(new SmartPerformanceSample(sampledAtUtc, midPrice, bps));
-        if (state.Samples.Count > MaximumSamples) state.Samples.RemoveRange(0, state.Samples.Count - MaximumSamples);
+        if (state.Samples.Count > MaximumSamples)
+        {
+            state.Samples.RemoveRange(0, state.Samples.Count - MaximumSamples);
+            state.BaselineMidPrice = state.Samples[0].MidPrice;
+            state.Samples = state.Samples
+                .Select(sample => new SmartPerformanceSample(sample.SampledAtUtc, sample.MidPrice, (sample.MidPrice / state.BaselineMidPrice - 1.0) * 10_000.0))
+                .ToList();
+        }
         return new SmartPerformanceUpdate(state, true, string.Empty);
     }
 
