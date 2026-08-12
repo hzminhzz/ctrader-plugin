@@ -1,5 +1,7 @@
+using System;
 using System.Globalization;
 using cAlgo.API;
+using cAlgo.API.Internals;
 using PropRiskManager.Domain;
 using PropRiskManager.Risk;
 
@@ -79,11 +81,25 @@ public sealed partial class PropRiskManagerPlugin
             return false;
         }
 
-        var portfolio = PortfolioRiskCalculator.Calculate(
-            Positions,
-            PendingOrders,
-            Symbols.GetSymbol,
-            _settings.CommissionPerLotRoundTrip);
+        PortfolioRiskSnapshot portfolio;
+        try
+        {
+            Func<Symbol, double, double, double, double>? automaticCommission = null;
+            if (_settings.UseAutomaticCommission)
+                automaticCommission = EstimateAutomaticRoundTripCommission;
+
+            portfolio = PortfolioRiskCalculator.Calculate(
+                Positions,
+                PendingOrders,
+                Symbols.GetSymbol,
+                _settings.CommissionPerLotRoundTrip,
+                automaticCommission);
+        }
+        catch (Exception ex)
+        {
+            _preTradeRoomStatus.Text = "BLOCKED: unable to estimate portfolio commission: " + ex.Message;
+            return false;
+        }
         var gate = PropFirmPreTradeGuard.Evaluate(
             _settings.PropFirm,
             guardian,

@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Linq;
 using cAlgo.API;
+using cAlgo.API.Internals;
 using PropRiskManager.Domain;
 using PropRiskManager.Risk;
 
@@ -15,6 +16,7 @@ public sealed partial class PropRiskManagerPlugin
     private TextBlock _status = null!;
     private TextBox _entryPrice = null!;
     private TextBox _riskValue = null!;
+    private CheckBox _autoCommission = null!;
     private TextBox _commissionPerLot = null!;
     private TextBox _slPips = null!;
     private TextBox _tpPips = null!;
@@ -106,7 +108,15 @@ public sealed partial class PropRiskManagerPlugin
         riskRow.AddChild(_sizing, 0, 3);
         root.AddChild(riskRow);
 
-        _commissionPerLot = AddInput(root, "Commission / lot", "0");
+        var commissionRow = new Grid(1, 2) { Margin = new Thickness(0, 2, 0, 2) };
+        _autoCommission = new CheckBox { Text = "Auto broker commission", IsChecked = true };
+        _commissionPerLot = new TextBox { Text = "0", Height = 24 };
+        _autoCommission.Checked += _ => UpdateCommissionMode();
+        _autoCommission.Unchecked += _ => UpdateCommissionMode();
+        commissionRow.AddChild(_autoCommission, 0, 0);
+        commissionRow.AddChild(_commissionPerLot, 0, 1);
+        root.AddChild(commissionRow);
+        UpdateCommissionMode();
 
         var slRow = new Grid(1, 2);
         _useStopLoss = new CheckBox { Text = "SL Pips", IsChecked = true };
@@ -180,6 +190,7 @@ public sealed partial class PropRiskManagerPlugin
         _chart.ObjectsRemoved += OnChartObjectsRemoved;
         DrawInitialLines();
         RefreshMarketInfo();
+        LogCommissionProfile();
         RecalculatePreview();
     }
 
@@ -452,8 +463,8 @@ public sealed partial class PropRiskManagerPlugin
             return;
 
         var spreadPips = _symbol.Spread / _symbol.PipSize;
-        var commission = ParseNonNegative(_commissionPerLot.Text, 0);
-        _marketInfo.Text = $"{_symbol.Name}   Spread: {spreadPips:F1} pips   Commission: {commission:F2}/lot   Pip: {_symbol.PipValue:G6}";
+        var commissionText = GetCommissionDisplay();
+        _marketInfo.Text = $"{_symbol.Name}   Spread: {spreadPips:F1} pips   Commission: {commissionText}   Pip: {_symbol.PipValue:G6}";
 
         if (Server.Time >= _lastLabelRefresh.AddSeconds(1))
         {
@@ -477,7 +488,7 @@ public sealed partial class PropRiskManagerPlugin
 
         _sizing.Text = $"Volume: {plan.QuantityLots:F2} lots";
         _orderTypeInfo.Text = plan.OrderKind == OrderKind.Market ? "Market Execution" : plan.OrderKind.ToString();
-        _status.Text = $"Risk {plan.RiskAmount:F2} | SL {plan.StopLossPips:F1} pips | R:R {plan.RewardRiskRatio:F2}";
+        _status.Text = $"Risk {plan.RiskAmount:F2} | Fees {plan.CommissionAmount:F2} | SL {plan.StopLossPips:F1} pips | R:R {plan.RewardRiskRatio:F2}";
     }
 
     private TradeType InferDirectionFromStop()
@@ -559,9 +570,17 @@ public sealed partial class PropRiskManagerPlugin
                 throw new ArgumentOutOfRangeException();
         }
 
-        _status.Text = result.IsSuccessful
-            ? $"{plan.OrderKind} {tradeType}: {plan.QuantityLots:F2} lots submitted."
-            : $"Execution error: {result.Error}";
+        if (result.IsSuccessful)
+        {
+            _status.Text = $"{plan.OrderKind} {tradeType}: {plan.QuantityLots:F2} lots submitted.";
+            Print(
+                $"PropRiskManager submitted {plan.OrderKind} {tradeType} {plan.QuantityLots:F2} lots {plan.SymbolName}; " +
+                $"estimated risk={plan.RiskAmount:F2}, estimated round-trip commission={plan.CommissionAmount:F2}.");
+        }
+        else
+        {
+            _status.Text = $"Execution error: {result.Error}";
+        }
     }
 
     private bool TryBuildPlan(TradeType tradeType, out TradePlan plan, out string reason)
@@ -592,6 +611,25 @@ public sealed partial class PropRiskManagerPlugin
             var stop = _stopLine.Y;
             var target = _useTakeProfit.IsChecked == true ? _targetLine.Y : (double?)null;
             var commission = ParseNonNegative(_commissionPerLot.Text, 0);
+            Func<double, double>? automaticCommission = null;
+
+            if (_autoCommission.IsChecked == true)
+            {
+                if (!CommissionEstimator.TryCreate(
+                        _symbol,
+                        AssetConverter,
+                        Account.Asset,
+                        entry,
+                        stop,
+                        out var schedule,
+                        out var commissionError))
+                {
+                    reason = "Automatic commission unavailable: " + commissionError;
+                    return false;
+                }
+
+                automaticCommission = schedule.EstimateRoundTrip;
+            }
 
             plan = PositionSizer.BuildPlan(
                 _symbol,
@@ -605,7 +643,8 @@ public sealed partial class PropRiskManagerPlugin
                 Account.Equity,
                 Account.Balance,
                 Account.FreeMargin,
-                commission);
+                commission,
+                automaticCommission);
 
             return true;
         }
@@ -643,10 +682,90 @@ public sealed partial class PropRiskManagerPlugin
         };
     }
 
+    private void UpdateCommissionMode()
+    {
+        if (_commissionPerLot == null || _autoCommission == null)
+            return;
+
+        _commissionPerLot.IsEnabled = _autoCommission.IsChecked != true;
+        RecalculatePreview();
+    }
+
+    private string GetCommissionDisplay()
+    {
+        if (_symbol == null)
+            return "--";
+
+        if (_autoCommission.IsChecked != true)
+            return $"manual {ParseNonNegative(_commissionPerLot.Text, 0):F2}/lot RT";
+
+        var entry = (_symbol.Bid + _symbol.Ask) / 2.0;
+        var stop = _stopLine?.Y ?? entry;
+        if (!CommissionEstimator.TryCreate(
+                _symbol,
+                AssetConverter,
+                Account.Asset,
+                entry,
+                stop,
+                out var schedule,
+                out var error))
+            return "auto unavailable: " + error;
+
+        var perLotRoundTrip = schedule.EstimateRoundTrip(_symbol.LotSize);
+        return $"auto ~{perLotRoundTrip:F2}/lot RT ({_symbol.CommissionType})";
+    }
+
+    private void LogCommissionProfile()
+    {
+        if (_symbol == null)
+            return;
+
+        var entry = (_symbol.Bid + _symbol.Ask) / 2.0;
+        var stop = _stopLine?.Y ?? entry;
+        if (CommissionEstimator.TryCreate(
+                _symbol,
+                AssetConverter,
+                Account.Asset,
+                entry,
+                stop,
+                out var schedule,
+                out var error))
+        {
+            Print(
+                $"PropRiskManager commission profile {_symbol.Name}: {_symbol.CommissionType}, " +
+                $"base={_symbol.Commission:G6}, min={_symbol.MinCommission:G6}, " +
+                $"estimated RT 1 lot={schedule.EstimateRoundTrip(_symbol.LotSize):F4} {Account.Asset.Name}.");
+        }
+        else
+        {
+            Print($"PropRiskManager commission profile unavailable for {_symbol.Name}: {error}");
+        }
+    }
+
+    private double EstimateAutomaticRoundTripCommission(
+        Symbol symbol,
+        double volumeInUnits,
+        double entryPrice,
+        double stopLossPrice)
+    {
+        if (!CommissionEstimator.TryCreate(
+                symbol,
+                AssetConverter,
+                Account.Asset,
+                entryPrice,
+                stopLossPrice,
+                out var schedule,
+                out var error))
+            throw new InvalidOperationException($"Automatic commission unavailable for {symbol.Name}: {error}");
+
+        return schedule.EstimateRoundTrip(volumeInUnits);
+    }
+
     private void CaptureTradeSettingsFromUi()
     {
         _settings.RiskMode = GetRiskMode();
         _settings.RiskValue = ParsePositive(_riskValue.Text, _settings.RiskValue);
+        _settings.UseAutomaticCommission = _autoCommission.IsChecked == true;
         _settings.CommissionPerLotRoundTrip = ParseNonNegative(_commissionPerLot.Text, _settings.CommissionPerLotRoundTrip);
         _settings.UseEntryPrice = _useEntryPrice.IsChecked == true;
         _settings.UseStopLoss = _useStopLoss.IsChecked == true;
@@ -662,7 +781,9 @@ public sealed partial class PropRiskManagerPlugin
     {
         _riskMode.SelectedItem = RiskModeLabel(_settings.RiskMode);
         _riskValue.Text = _settings.RiskValue.ToString(CultureInfo.InvariantCulture);
+        _autoCommission.IsChecked = _settings.UseAutomaticCommission;
         _commissionPerLot.Text = _settings.CommissionPerLotRoundTrip.ToString(CultureInfo.InvariantCulture);
+        UpdateCommissionMode();
         _useEntryPrice.IsChecked = _settings.UseEntryPrice;
         _useStopLoss.IsChecked = _settings.UseStopLoss;
         _useTakeProfit.IsChecked = _settings.UseTakeProfit;
