@@ -79,14 +79,14 @@ Original native cTrader plugin implementing the supplied Risk Manager Pro-style 
 
 ## CI status
 
-The current draft-PR pipeline validates:
+The draft-PR pipeline validates:
 
 1. cTrader plugin restore/build
 2. pure guardian/state MSTest suite
 3. package rename from the compiler-emitted `src.algo` to `PropRiskManager.algo`
 4. GitHub Actions artifact publication as `PropRiskManager-algo`
 
-The first fully green package pipeline is build run **119** on the feature branch.
+Build run **119** is the first fully green package pipeline on the feature branch.
 
 ## Install a CI build
 
