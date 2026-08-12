@@ -32,7 +32,8 @@ public enum SmartAlertState
 
 public enum SmartPositionActionType
 {
-    ImproveStopLoss
+    ImproveStopLoss,
+    PartialClose
 }
 
 public enum SmartStopActionReason
@@ -85,6 +86,12 @@ public sealed class SmartPositionSettings
     public double? PreBreakEvenTrailingPriceDistance { get; init; }
     public double? PostBreakEvenTrailingPriceDistance { get; init; }
     public double StopImprovementEpsilon { get; init; }
+
+    public bool ConfigurePartialProfitRequested { get; init; }
+    public bool FinancialPartialProfitEnabled { get; init; }
+    public double? FirstPartialProfitTriggerPrice { get; init; }
+    public double? PartialProfitClosePercent { get; init; }
+    public bool RetryRejectedPartialProfitRequested { get; init; }
 }
 
 public sealed class SmartStopManagementPlan
@@ -100,6 +107,13 @@ public sealed class SmartStopManagementPlan
     public double StopImprovementEpsilon { get; set; }
 }
 
+public sealed class SmartPartialProfitPlan
+{
+    public bool Enabled { get; set; }
+    public double TriggerPrice { get; set; }
+    public double ClosePercent { get; set; }
+}
+
 public sealed class SmartPositionAction
 {
     public string ActionId { get; set; } = string.Empty;
@@ -109,6 +123,8 @@ public sealed class SmartPositionAction
     public string SymbolName { get; set; } = string.Empty;
     public SmartPositionDirection Direction { get; set; }
     public double RequestedStopPrice { get; set; }
+    public double RequestedCloseVolumeInUnits { get; set; }
+    public int PartialProfitStageIndex { get; set; }
     public SmartPositionPhase TargetPhase { get; set; }
     public DateTime RequestedAtUtc { get; set; }
 }
@@ -119,6 +135,17 @@ public sealed class SmartPendingStopAction
     public SmartStopActionReason Reason { get; set; }
     public double RequestedStopPrice { get; set; }
     public SmartPositionPhase TargetPhase { get; set; }
+    public DateTime RequestedAtUtc { get; set; }
+    public SmartActionExecutionStatus ExecutionStatus { get; set; } = SmartActionExecutionStatus.Pending;
+    public string DiagnosticError { get; set; } = string.Empty;
+}
+
+public sealed class SmartPendingPartialProfitAction
+{
+    public string ActionId { get; set; } = string.Empty;
+    public int StageIndex { get; set; }
+    public double BrokerVolumeAtRequest { get; set; }
+    public double RequestedCloseVolumeInUnits { get; set; }
     public DateTime RequestedAtUtc { get; set; }
     public SmartActionExecutionStatus ExecutionStatus { get; set; } = SmartActionExecutionStatus.Pending;
     public string DiagnosticError { get; set; } = string.Empty;
@@ -172,6 +199,10 @@ public sealed class SmartPositionState
     public DateTime? PhaseChangedAtUtc { get; set; }
     public SmartStopManagementPlan StopManagement { get; set; } = new();
     public SmartPendingStopAction? PendingStopAction { get; set; }
+    public SmartPartialProfitPlan PartialProfit { get; set; } = new();
+    public SmartPendingPartialProfitAction? PendingPartialProfitAction { get; set; }
+    public bool FirstPartialProfitCompleted { get; set; }
+    public DateTime? FirstPartialProfitCompletedAtUtc { get; set; }
     public List<SmartAlertDefinition> AlertDefinitions { get; set; } = new();
 }
 
