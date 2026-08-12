@@ -59,7 +59,7 @@ public sealed partial class PropRiskManagerPlugin
         ComboBox[] closeMode)
     {
         var block = Asp.SymbolTab.AddBlock(blockName);
-        block.Height = 235;
+        ConfigureAspBlock(block, 235);
         var root = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(8) };
         root.AddChild(new TextBlock
         {
