@@ -9,6 +9,7 @@ public sealed class AccountRuntimeState
     public DateTime TradingDay { get; set; }
     public double DayStartBalance { get; set; }
     public double DayStartEquity { get; set; }
+    public double DailyEquityPeak { get; set; }
     public double EquityPeak { get; set; }
     public double BalancePeak { get; set; }
     public bool TradingBlocked { get; set; }
