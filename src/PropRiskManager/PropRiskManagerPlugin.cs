@@ -92,6 +92,7 @@ public sealed partial class PropRiskManagerPlugin : Plugin
         RecalculatePreview();
         RunAdvancedProtection();
         RunPartialExitAutomation();
+        RunSmartPositionMonitoring();
         RefreshPositionManagement();
         RefreshTradingStats();
 
