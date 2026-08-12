@@ -26,6 +26,7 @@ public sealed class PropFirmSettings
     public bool BlockIfExposureHasNoStop { get; set; } = true;
 
     public bool AutoCloseOnDrawdownBreach { get; set; } = true;
+    public string ResetTimeZoneId { get; set; } = string.Empty;
     public double ResetUtcOffsetHours { get; set; }
     public int ResetHour { get; set; }
 }
