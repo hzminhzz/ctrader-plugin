@@ -30,6 +30,15 @@ public sealed class PluginSettings
 
     public List<PartialExitLevelSettings> PartialTakeProfits { get; set; } = CreateDefaultTakeProfits();
     public List<PartialExitLevelSettings> PartialStopLosses { get; set; } = CreateDefaultStopLosses();
+    public PropFirmSettings PropFirm { get; set; } = new();
+
+    public void EnsureDefaults(double currentBalance = 0)
+    {
+        EnsurePartialExitDefaults();
+        PropFirm ??= new PropFirmSettings();
+        if (PropFirm.InitialBalance <= 0 && currentBalance > 0)
+            PropFirm.InitialBalance = currentBalance;
+    }
 
     public void EnsurePartialExitDefaults()
     {
