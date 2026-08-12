@@ -19,5 +19,6 @@
     <Compile Include="../../src/PropRiskManager/State/AccountStateManager.cs" Link="Source/AccountStateManager.cs" />
     <Compile Include="../../src/PropRiskManager/Risk/PropFirmGuardianEngine.cs" Link="Source/PropFirmGuardianEngine.cs" />
     <Compile Include="../../src/PropRiskManager/Risk/PropFirmPreTradeGuard.cs" Link="Source/PropFirmPreTradeGuard.cs" />
+    <Compile Include="../../src/PropRiskManager/Risk/GuardianTradingClock.cs" Link="Source/GuardianTradingClock.cs" />
   </ItemGroup>
 </Project>
