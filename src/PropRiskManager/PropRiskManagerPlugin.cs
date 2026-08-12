@@ -43,6 +43,9 @@ public sealed partial class PropRiskManagerPlugin : Plugin
 
         ChartManager.ActiveFrameChanged += OnActiveFrameChanged;
         Account.Switched += OnAccountSwitched;
+        Positions.Opened += OnSmartPositionOpened;
+        Positions.Modified += OnSmartPositionModified;
+        Positions.Closed += OnSmartPositionClosed;
 
         BindToActiveChart();
         InitializeTradeHotkeys();
@@ -57,16 +60,13 @@ public sealed partial class PropRiskManagerPlugin : Plugin
         _runtimeFaulted = true;
         _runtimeFaultReason = $"Unhandled runtime exception #{_runtimeExceptionCount}: {exception.GetType().Name}: {exception.Message}";
         Print($"PropRiskManager {_runtimeFaultReason}\n{exception.StackTrace}");
-
-        if (_status != null)
-            _status.Text = "TRADING BLOCKED: " + _runtimeFaultReason + " Restart the plugin after resolving the error.";
+        if (_status != null) _status.Text = "TRADING BLOCKED: " + _runtimeFaultReason + " Restart the plugin after resolving the error.";
     }
 
     protected override void OnError(Error error)
     {
         Print($"PropRiskManager trade operation error: {error}");
-        if (_status != null)
-            _status.Text = $"Trade operation error: {error}";
+        if (_status != null) _status.Text = $"Trade operation error: {error}";
     }
 
     protected override void OnStop()
@@ -75,14 +75,15 @@ public sealed partial class PropRiskManagerPlugin : Plugin
         DisposeTradeHotkeys();
         ChartManager.ActiveFrameChanged -= OnActiveFrameChanged;
         Account.Switched -= OnAccountSwitched;
+        Positions.Opened -= OnSmartPositionOpened;
+        Positions.Modified -= OnSmartPositionModified;
+        Positions.Closed -= OnSmartPositionClosed;
         UnbindChart();
     }
 
     protected override void OnTimer()
     {
-        if (_chart == null)
-            BindToActiveChart();
-
+        if (_chart == null) BindToActiveChart();
         RefreshMarketInfo();
         UpdateLineVisibility();
         CapturePropFirmSettingsFromUi();
@@ -93,6 +94,7 @@ public sealed partial class PropRiskManagerPlugin : Plugin
         RunAdvancedProtection();
         RunPartialExitAutomation();
         RunSmartPositionMonitoring();
+        RunSmartPositionSafetyReconciliation();
         RefreshPositionManagement();
         RefreshTradingStats();
 
