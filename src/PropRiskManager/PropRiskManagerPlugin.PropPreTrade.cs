@@ -55,7 +55,20 @@ public sealed partial class PropRiskManagerPlugin
     {
         CapturePropFirmSettingsFromUi();
         CapturePropPreTradeSettingsFromUi();
+
+        if (_runtimeFaulted)
+        {
+            _preTradeRoomStatus.Text = "BLOCKED: " + _runtimeFaultReason + " Restart the plugin after resolving the error.";
+            return false;
+        }
+
         UpdateRuntimeState();
+
+        if (!_guardianClockValid)
+        {
+            _preTradeRoomStatus.Text = "BLOCKED: " + _guardianClockError;
+            return false;
+        }
 
         var guardian = PropFirmGuardianEngine.Evaluate(_settings.PropFirm, _runtimeState, Account.Equity);
         _runtimeState.TradingBlocked = guardian.ShouldBlockTrading;
