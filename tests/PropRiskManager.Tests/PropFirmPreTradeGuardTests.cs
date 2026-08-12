@@ -1,12 +1,13 @@
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using PropRiskManager.Risk;
 using PropRiskManager.State;
-using Xunit;
 
 namespace PropRiskManager.Tests;
 
+[TestClass]
 public sealed class PropFirmPreTradeGuardTests
 {
-    [Fact]
+    [TestMethod]
     public void BlocksWhenWorstCaseFallsBelowFloorPlusBuffer()
     {
         var settings = Settings();
@@ -21,12 +22,12 @@ public sealed class PropFirmPreTradeGuardTests
             proposedRisk: 3_000,
             unprotectedExposureCount: 0);
 
-        Assert.False(result.Allowed);
-        Assert.Equal(95_500, result.BindingFloor + result.SafetyBufferAmount, 6);
-        Assert.Equal(95_000, result.WorstCaseEquity, 6);
+        Assert.IsFalse(result.Allowed);
+        Assert.AreEqual(95_500, result.BindingFloor + result.SafetyBufferAmount, 0.000001);
+        Assert.AreEqual(95_000, result.WorstCaseEquity, 0.000001);
     }
 
-    [Fact]
+    [TestMethod]
     public void AllowsWhenWorstCasePreservesProtectedRoom()
     {
         var settings = Settings();
@@ -41,11 +42,11 @@ public sealed class PropFirmPreTradeGuardTests
             proposedRisk: 2_000,
             unprotectedExposureCount: 0);
 
-        Assert.True(result.Allowed);
-        Assert.Equal(97_000, result.WorstCaseEquity, 6);
+        Assert.IsTrue(result.Allowed);
+        Assert.AreEqual(97_000, result.WorstCaseEquity, 0.000001);
     }
 
-    [Fact]
+    [TestMethod]
     public void BlocksUnprotectedExistingExposureWhenConfigured()
     {
         var settings = Settings();
@@ -60,11 +61,11 @@ public sealed class PropFirmPreTradeGuardTests
             proposedRisk: 100,
             unprotectedExposureCount: 1);
 
-        Assert.False(result.Allowed);
-        Assert.Contains("no stop loss", result.Reason);
+        Assert.IsFalse(result.Allowed);
+        StringAssert.Contains(result.Reason, "no stop loss");
     }
 
-    [Fact]
+    [TestMethod]
     public void DisabledGuardAllowsRegardlessOfRoom()
     {
         var settings = Settings();
@@ -79,7 +80,7 @@ public sealed class PropFirmPreTradeGuardTests
             proposedRisk: 50_000,
             unprotectedExposureCount: 10);
 
-        Assert.True(result.Allowed);
+        Assert.IsTrue(result.Allowed);
     }
 
     private static PropFirmSettings Settings() => new()
