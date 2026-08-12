@@ -5,7 +5,7 @@ using PropRiskManager.State;
 
 namespace PropRiskManager;
 
-[Plugin(AccessRights = AccessRights.None)]
+[Plugin(TimeZone = TimeZones.UTC, AccessRights = AccessRights.None)]
 public sealed partial class PropRiskManagerPlugin : Plugin
 {
     private const string EntryLineName = "PRM_ENTRY";
@@ -28,6 +28,7 @@ public sealed partial class PropRiskManagerPlugin : Plugin
     {
         BuildTradeExecutionPanel();
         BuildAdvancedProtectionPanel();
+        BuildPropFirmProtectionPanel();
         BuildPositionManagementPanel();
         BuildPartialTakeProfitPanel();
         BuildPartialStopLossPanel();
@@ -55,7 +56,9 @@ public sealed partial class PropRiskManagerPlugin : Plugin
     {
         RefreshMarketInfo();
         UpdateLineVisibility();
+        CapturePropFirmSettingsFromUi();
         UpdateRuntimeState();
+        RunPropFirmGuardian();
         RecalculatePreview();
         RunAdvancedProtection();
         RunPartialExitAutomation();
