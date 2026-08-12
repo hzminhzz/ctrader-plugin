@@ -3,53 +3,13 @@ using System.Collections.Generic;
 
 namespace PropRiskManager.Domain;
 
-public enum SmartPositionDirection
-{
-    Long,
-    Short
-}
-
-public enum SmartPositionPhase
-{
-    MonitoringPreBreakEven,
-    BreakEven,
-    PostBreakEvenTrailing
-}
-
-public enum SmartAlertType
-{
-    PartialProfit,
-    BreakEven,
-    StopLoss
-}
-
-public enum SmartAlertState
-{
-    Armed,
-    Triggered,
-    Disarmed
-}
-
-public enum SmartPositionActionType
-{
-    ImproveStopLoss,
-    PartialClose
-}
-
-public enum SmartStopActionReason
-{
-    PreBreakEvenTrailing,
-    BreakEven,
-    PostBreakEvenTrailing
-}
-
-public enum SmartActionExecutionStatus
-{
-    Pending,
-    AcceptedAwaitingReconciliation,
-    Rejected,
-    NoOp
-}
+public enum SmartPositionDirection { Long, Short }
+public enum SmartPositionPhase { MonitoringPreBreakEven, BreakEven, PostBreakEvenTrailing }
+public enum SmartAlertType { PartialProfit, BreakEven, StopLoss }
+public enum SmartAlertState { Armed, Triggered, Disarmed }
+public enum SmartPositionActionType { ImproveStopLoss, PartialClose }
+public enum SmartStopActionReason { PreBreakEvenTrailing, BreakEven, PostBreakEvenTrailing }
+public enum SmartActionExecutionStatus { Pending, AcceptedAwaitingReconciliation, Rejected, NoOp }
 
 public sealed class SmartPositionSnapshot
 {
@@ -75,7 +35,7 @@ public sealed class SmartPositionSettings
     public double? BreakEvenTriggerPrice { get; init; }
     public double? StopLossTriggerPrice { get; init; }
     public double? VirtualStopLossPrice { get; init; }
-
+    public SmartManagementMode ManagementMode { get; init; } = SmartManagementMode.Points;
     public bool ConfigureStopManagementRequested { get; init; }
     public bool FinancialStopManagementEnabled { get; init; }
     public bool PreBreakEvenTrailingEnabled { get; init; }
@@ -86,16 +46,23 @@ public sealed class SmartPositionSettings
     public double? PreBreakEvenTrailingPriceDistance { get; init; }
     public double? PostBreakEvenTrailingPriceDistance { get; init; }
     public double StopImprovementEpsilon { get; init; }
-
+    public double? BreakEvenTriggerPercentage { get; init; }
+    public double? BreakEvenAdjustmentPercentage { get; init; }
+    public double? PreBreakEvenTrailingPercentage { get; init; }
+    public double? PostBreakEvenTrailingPercentage { get; init; }
     public bool ConfigurePartialProfitRequested { get; init; }
     public bool FinancialPartialProfitEnabled { get; init; }
     public double? FirstPartialProfitTriggerPrice { get; init; }
     public double? PartialProfitClosePercent { get; init; }
     public bool RetryRejectedPartialProfitRequested { get; init; }
+    public bool MultiPartialProfitEnabled { get; init; }
+    public double? PartialProfitSpacingPriceDistance { get; init; }
+    public double? PartialProfitSpacingPercentage { get; init; }
 }
 
 public sealed class SmartStopManagementPlan
 {
+    public SmartManagementMode Mode { get; set; } = SmartManagementMode.Points;
     public bool Enabled { get; set; }
     public bool PreBreakEvenTrailingEnabled { get; set; }
     public bool BreakEvenEnabled { get; set; }
@@ -109,9 +76,12 @@ public sealed class SmartStopManagementPlan
 
 public sealed class SmartPartialProfitPlan
 {
+    public SmartManagementMode Mode { get; set; } = SmartManagementMode.Points;
     public bool Enabled { get; set; }
-    public double TriggerPrice { get; set; }
+    public bool MultiEnabled { get; set; }
+    public double StageSpacingPriceDistance { get; set; }
     public double ClosePercent { get; set; }
+    public int MaximumStages { get; set; } = 1;
 }
 
 public sealed class SmartPositionAction
@@ -203,6 +173,7 @@ public sealed class SmartPositionState
     public SmartPendingPartialProfitAction? PendingPartialProfitAction { get; set; }
     public bool FirstPartialProfitCompleted { get; set; }
     public DateTime? FirstPartialProfitCompletedAtUtc { get; set; }
+    public int CompletedPartialProfitStageCount { get; set; }
     public List<SmartAlertDefinition> AlertDefinitions { get; set; } = new();
 }
 
