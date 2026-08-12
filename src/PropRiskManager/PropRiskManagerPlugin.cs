@@ -29,6 +29,7 @@ public sealed partial class PropRiskManagerPlugin : Plugin
         BuildTradeExecutionPanel();
         BuildAdvancedProtectionPanel();
         BuildPropFirmProtectionPanel();
+        BuildPropPreTradePanel();
         BuildPositionManagementPanel();
         BuildPartialTakeProfitPanel();
         BuildPartialStopLossPanel();
@@ -61,6 +62,7 @@ public sealed partial class PropRiskManagerPlugin : Plugin
         RefreshMarketInfo();
         UpdateLineVisibility();
         CapturePropFirmSettingsFromUi();
+        CapturePropPreTradeSettingsFromUi();
         UpdateRuntimeState();
         RunPropFirmGuardian();
         RecalculatePreview();
