@@ -27,6 +27,9 @@ public static class PartialExitEngine
 
         foreach (var position in openPositions)
         {
+            if (runtimeState.SmartPositions.TryGetValue(position.Id, out var smartState) && smartState.PartialProfit.Enabled)
+                continue;
+
             if (!runtimeState.PositionAutomation.TryGetValue(position.Id, out var state))
             {
                 state = new PositionAutomationState { OriginalVolumeInUnits = position.VolumeInUnits };
