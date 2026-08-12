@@ -68,8 +68,10 @@ Acceptance: each level fires at most once per position and never attempts an inv
 - [x] Account-wide equity peak tracking
 - [x] Real-time equity-based drawdown monitoring including floating account P&L
 - [ ] Firm-specific commission/swap/reference-balance formula modes
-- [ ] Configurable safety buffer before the formal breach line
-- [ ] Pre-trade worst-case block based on remaining daily/total loss room
+- [x] Configurable safety buffer before the formal breach line
+- [x] Pre-trade worst-case block based on remaining daily/total loss room
+- [x] Account-wide existing risk-to-SL calculation for open positions and pending orders
+- [x] Optional new-trade block when existing exposure has no stop loss
 - [x] Auto-close all and cancel pending at configured drawdown breach boundary
 - [x] Emergency liquidation retry throttling
 - [x] Persist day-start, peak, and automation state per account
