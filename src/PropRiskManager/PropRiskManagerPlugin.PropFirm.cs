@@ -24,6 +24,7 @@ public sealed partial class PropRiskManagerPlugin
     private TextBox _minimumDays = null!;
     private TextBox _maxLots = null!;
     private CheckBox _autoCloseDrawdown = null!;
+    private TextBox _resetTimeZoneId = null!;
     private TextBox _resetUtcOffset = null!;
     private TextBox _resetHour = null!;
     private TextBlock _propStatus = null!;
@@ -31,16 +32,18 @@ public sealed partial class PropRiskManagerPlugin
     private TextBlock _propDayPnl = null!;
     private TextBlock _propConsistency = null!;
     private DateTime _lastGuardianLiquidationAttempt;
+    private bool _guardianClockValid = true;
+    private string _guardianClockError = string.Empty;
 
     private void BuildPropFirmProtectionPanel()
     {
         var block = Asp.SymbolTab.AddBlock("Prop Firm Guardian");
-        ConfigureAspBlock(block, 335);
+        ConfigureAspBlock(block, 370);
         var root = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(8) };
 
         root.AddChild(new TextBlock
         {
-            Text = "PROP FIRM PROTECTION",
+            Text = "PROP FIRM GUARDIAN",
             FontSize = 15,
             FontWeight = FontWeight.Bold,
             Margin = new Thickness(0, 0, 0, 5)
@@ -89,8 +92,10 @@ public sealed partial class PropRiskManagerPlugin
         ruleRow.AddChild(_maxLots, 0, 3);
         root.AddChild(ruleRow);
 
+        _resetTimeZoneId = AddInput(root, "Reset TZ ID (optional)", "");
+
         var resetRow = new Grid(1, 4) { Margin = new Thickness(0, 2, 0, 2) };
-        resetRow.AddChild(new TextBlock { Text = "Reset UTC offset", VerticalAlignment = VerticalAlignment.Center }, 0, 0);
+        resetRow.AddChild(new TextBlock { Text = "Fallback UTC offset", VerticalAlignment = VerticalAlignment.Center }, 0, 0);
         _resetUtcOffset = new TextBox { Text = "0", Height = 24 };
         resetRow.AddChild(_resetUtcOffset, 0, 1);
         resetRow.AddChild(new TextBlock { Text = "Hour", VerticalAlignment = VerticalAlignment.Center }, 0, 2);
@@ -116,6 +121,19 @@ public sealed partial class PropRiskManagerPlugin
     private void RunPropFirmGuardian()
     {
         CapturePropFirmSettingsFromUi();
+
+        if (!_guardianClockValid)
+        {
+            _runtimeState.TradingBlocked = true;
+            _runtimeState.BlockReason = _guardianClockError;
+            _propStatus.Text = "Status: INVALID RESET TIME ZONE - " + _guardianClockError;
+            _propStatus.ForegroundColor = Color.Red;
+            _propDrawdowns.Text = "Daily protection is paused until the reset time zone is corrected.";
+            _propDayPnl.Text = string.Empty;
+            _propConsistency.Text = string.Empty;
+            return;
+        }
+
         var snapshot = PropFirmGuardianEngine.Evaluate(_settings.PropFirm, _runtimeState, Account.Equity);
 
         _runtimeState.TradingBlocked = snapshot.ShouldBlockTrading;
@@ -145,8 +163,15 @@ public sealed partial class PropRiskManagerPlugin
     private DateTime GetGuardianTradingDay(DateTime utcTime)
     {
         var settings = _settings.PropFirm;
-        var shifted = utcTime.AddHours(settings.ResetUtcOffsetHours).AddHours(-settings.ResetHour);
-        return shifted.Date;
+        _guardianClockValid = GuardianTradingClock.TryGetTradingDay(
+            utcTime,
+            settings.ResetTimeZoneId,
+            settings.ResetHour,
+            settings.ResetUtcOffsetHours,
+            out var tradingDay,
+            out var error);
+        _guardianClockError = error;
+        return tradingDay;
     }
 
     private int GetTradingDaysCount()
@@ -196,6 +221,7 @@ public sealed partial class PropRiskManagerPlugin
         settings.MinimumTradingDays = Math.Max(0, (int)ParseNonNegative(_minimumDays.Text, settings.MinimumTradingDays));
         settings.MaxLotsPerTrade = ParseNonNegative(_maxLots.Text, settings.MaxLotsPerTrade);
         settings.AutoCloseOnDrawdownBreach = _autoCloseDrawdown.IsChecked == true;
+        settings.ResetTimeZoneId = (_resetTimeZoneId.Text ?? string.Empty).Trim();
         settings.ResetUtcOffsetHours = Math.Max(-14, Math.Min(14, ParseSigned(_resetUtcOffset.Text, settings.ResetUtcOffsetHours)));
         settings.ResetHour = Math.Max(0, Math.Min(23, (int)ParseNonNegative(_resetHour.Text, settings.ResetHour)));
     }
@@ -217,6 +243,7 @@ public sealed partial class PropRiskManagerPlugin
         _minimumDays.Text = settings.MinimumTradingDays.ToString(CultureInfo.InvariantCulture);
         _maxLots.Text = settings.MaxLotsPerTrade.ToString(CultureInfo.InvariantCulture);
         _autoCloseDrawdown.IsChecked = settings.AutoCloseOnDrawdownBreach;
+        _resetTimeZoneId.Text = settings.ResetTimeZoneId ?? string.Empty;
         _resetUtcOffset.Text = settings.ResetUtcOffsetHours.ToString(CultureInfo.InvariantCulture);
         _resetHour.Text = settings.ResetHour.ToString(CultureInfo.InvariantCulture);
     }
