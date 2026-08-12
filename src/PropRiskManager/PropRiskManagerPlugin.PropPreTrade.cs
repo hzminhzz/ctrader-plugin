@@ -1,5 +1,7 @@
 using System.Globalization;
 using cAlgo.API;
+using PropRiskManager.Domain;
+using PropRiskManager.Risk;
 
 namespace PropRiskManager;
 
@@ -47,6 +49,55 @@ public sealed partial class PropRiskManagerPlugin
         _preTradeRoomStatus = new TextBlock { Margin = new Thickness(0, 3, 0, 0) };
         root.AddChild(_preTradeRoomStatus);
         block.Child = root;
+    }
+
+    private bool AllowByPropLossRoom(TradePlan plan)
+    {
+        CapturePropFirmSettingsFromUi();
+        CapturePropPreTradeSettingsFromUi();
+        UpdateRuntimeState();
+
+        var guardian = PropFirmGuardianEngine.Evaluate(_settings.PropFirm, _runtimeState, Account.Equity);
+        _runtimeState.TradingBlocked = guardian.ShouldBlockTrading;
+        _runtimeState.BlockReason = guardian.BlockReason;
+        if (guardian.ShouldBlockTrading)
+        {
+            _preTradeRoomStatus.Text = "BLOCKED: " + guardian.BlockReason;
+            return false;
+        }
+
+        var portfolio = PortfolioRiskCalculator.Calculate(
+            Positions,
+            PendingOrders,
+            Symbols.GetSymbol,
+            _settings.CommissionPerLotRoundTrip);
+        var gate = PropFirmPreTradeGuard.Evaluate(
+            _settings.PropFirm,
+            guardian,
+            Account.Equity,
+            portfolio.RiskToStop,
+            plan.RiskAmount,
+            portfolio.UnprotectedExposureCount);
+
+        if (!gate.Allowed)
+        {
+            _preTradeRoomStatus.Text = "BLOCKED: " + gate.Reason;
+            return false;
+        }
+
+        if (double.IsNegativeInfinity(gate.BindingFloor))
+        {
+            _preTradeRoomStatus.Text = $"Worst-case equity: {gate.WorstCaseEquity:F2} (no DD floor enabled)";
+        }
+        else
+        {
+            var protectedFloor = gate.BindingFloor + gate.SafetyBufferAmount;
+            var remaining = gate.WorstCaseEquity - protectedFloor;
+            _preTradeRoomStatus.Text =
+                $"Worst-case equity: {gate.WorstCaseEquity:F2} | protected floor: {protectedFloor:F2} | room: {remaining:F2}";
+        }
+
+        return true;
     }
 
     private void CapturePropPreTradeSettingsFromUi()
