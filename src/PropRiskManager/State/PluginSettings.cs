@@ -5,6 +5,7 @@ namespace PropRiskManager.State;
 
 public sealed class PluginSettings
 {
+    public bool SafeDefaultsApplied { get; set; }
     public RiskMode RiskMode { get; set; } = RiskMode.PercentEquity;
     public double RiskValue { get; set; } = 1.0;
     public double CommissionPerLotRoundTrip { get; set; }
@@ -28,13 +29,21 @@ public sealed class PluginSettings
     public double PartialClosePercent { get; set; } = 50;
     public double ManualBreakEvenOffsetPips { get; set; } = 10;
 
-    public List<PartialExitLevelSettings> PartialTakeProfits { get; set; } = CreateDefaultTakeProfits();
-    public List<PartialExitLevelSettings> PartialStopLosses { get; set; } = CreateDefaultStopLosses();
+    public List<PartialExitLevelSettings> PartialTakeProfits { get; set; } = new();
+    public List<PartialExitLevelSettings> PartialStopLosses { get; set; } = new();
     public PropFirmSettings PropFirm { get; set; } = new();
 
     public void EnsureDefaults(double currentBalance = 0)
     {
         EnsurePartialExitDefaults();
+
+        if (!SafeDefaultsApplied)
+        {
+            foreach (var level in PartialTakeProfits)
+                level.Enabled = false;
+            SafeDefaultsApplied = true;
+        }
+
         PropFirm ??= new PropFirmSettings();
         if (PropFirm.InitialBalance <= 0 && currentBalance > 0)
             PropFirm.InitialBalance = currentBalance;
@@ -45,12 +54,17 @@ public sealed class PluginSettings
         PartialTakeProfits ??= new List<PartialExitLevelSettings>();
         PartialStopLosses ??= new List<PartialExitLevelSettings>();
 
+        if (PartialTakeProfits.Count > 5)
+            PartialTakeProfits.RemoveRange(5, PartialTakeProfits.Count - 5);
+        if (PartialStopLosses.Count > 5)
+            PartialStopLosses.RemoveRange(5, PartialStopLosses.Count - 5);
+
         while (PartialTakeProfits.Count < 5)
         {
             var index = PartialTakeProfits.Count + 1;
             PartialTakeProfits.Add(new PartialExitLevelSettings
             {
-                Enabled = true,
+                Enabled = false,
                 TriggerValue = index * 10,
                 CloseValue = 25
             });
@@ -68,33 +82,4 @@ public sealed class PluginSettings
         }
     }
 
-    private static List<PartialExitLevelSettings> CreateDefaultTakeProfits()
-    {
-        var levels = new List<PartialExitLevelSettings>();
-        for (var i = 1; i <= 5; i++)
-        {
-            levels.Add(new PartialExitLevelSettings
-            {
-                Enabled = true,
-                TriggerValue = i * 10,
-                CloseValue = 25
-            });
-        }
-        return levels;
-    }
-
-    private static List<PartialExitLevelSettings> CreateDefaultStopLosses()
-    {
-        var levels = new List<PartialExitLevelSettings>();
-        for (var i = 1; i <= 5; i++)
-        {
-            levels.Add(new PartialExitLevelSettings
-            {
-                Enabled = false,
-                TriggerValue = i * 10,
-                CloseValue = 25
-            });
-        }
-        return levels;
-    }
 }
