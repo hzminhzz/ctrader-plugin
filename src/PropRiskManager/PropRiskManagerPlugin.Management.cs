@@ -33,7 +33,7 @@ public sealed partial class PropRiskManagerPlugin
     private void BuildAdvancedProtectionPanel()
     {
         var block = Asp.SymbolTab.AddBlock("Advanced Protection");
-        block.Height = 145;
+        ConfigureAspBlock(block, 145);
 
         var root = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(8) };
         root.AddChild(new TextBlock
@@ -73,7 +73,7 @@ public sealed partial class PropRiskManagerPlugin
     private void BuildPositionManagementPanel()
     {
         var block = Asp.SymbolTab.AddBlock("Position Management");
-        block.Height = 300;
+        ConfigureAspBlock(block, 300);
 
         var root = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(8) };
         root.AddChild(new TextBlock
