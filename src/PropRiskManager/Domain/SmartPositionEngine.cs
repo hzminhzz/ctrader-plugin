@@ -29,6 +29,8 @@ public static class SmartPositionEngine
             diagnostics.AddRange(ConfigureAlerts(state, positionSnapshot, settings, rearmExisting: false));
             if (settings.ConfigureStopManagementRequested)
                 diagnostics.AddRange(ConfigureStopManagement(state, settings));
+            if (settings.ConfigurePartialProfitRequested)
+                diagnostics.AddRange(ConfigurePartialProfit(state, settings));
 
             return new SmartPositionEvaluation { Diagnostics = diagnostics, NextState = state };
         }
@@ -54,6 +56,11 @@ public static class SmartPositionEngine
 
         if (settings.ConfigureStopManagementRequested)
             diagnosticsResult.AddRange(ConfigureStopManagement(nextState, settings));
+        if (settings.ConfigurePartialProfitRequested)
+            diagnosticsResult.AddRange(ConfigurePartialProfit(nextState, settings));
+        if (settings.RetryRejectedPartialProfitRequested &&
+            nextState.PendingPartialProfitAction?.ExecutionStatus is SmartActionExecutionStatus.Rejected or SmartActionExecutionStatus.NoOp)
+            nextState.PendingPartialProfitAction = null;
 
         if (settings.RemoveAlertsRequested)
         {
@@ -69,7 +76,9 @@ public static class SmartPositionEngine
         }
 
         var events = EvaluateAlerts(nextState, positionSnapshot);
-        var actions = EvaluateFinancialStopManagement(nextState, positionSnapshot, diagnosticsResult);
+        var stopActions = EvaluateFinancialStopManagement(nextState, positionSnapshot, diagnosticsResult);
+        var partialActions = EvaluateFirstPartialProfit(nextState, positionSnapshot, diagnosticsResult);
+        var actions = stopActions.Concat(partialActions).ToArray();
 
         return new SmartPositionEvaluation
         {
@@ -94,6 +103,22 @@ public static class SmartPositionEngine
 
         if (normalizedRequestedStopPrice.HasValue && IsFinitePositive(normalizedRequestedStopPrice.Value))
             pending.RequestedStopPrice = normalizedRequestedStopPrice.Value;
+        pending.ExecutionStatus = status;
+        pending.DiagnosticError = diagnosticError ?? string.Empty;
+        return nextState;
+    }
+
+    public static SmartPositionState RecordPartialProfitActionResult(
+        SmartPositionState persistedState,
+        string actionId,
+        SmartActionExecutionStatus status,
+        string? diagnosticError = null)
+    {
+        var nextState = Clone(persistedState);
+        var pending = nextState.PendingPartialProfitAction;
+        if (pending == null || !string.Equals(pending.ActionId, actionId, StringComparison.Ordinal))
+            return nextState;
+
         pending.ExecutionStatus = status;
         pending.DiagnosticError = diagnosticError ?? string.Empty;
         return nextState;
@@ -158,6 +183,7 @@ public static class SmartPositionEngine
             MonitoringStartedAtUtc = snapshot.ObservedAtUtc,
             Phase = SmartPositionPhase.MonitoringPreBreakEven,
             StopManagement = new SmartStopManagementPlan(),
+            PartialProfit = new SmartPartialProfitPlan(),
             AlertDefinitions = new List<SmartAlertDefinition>()
         };
     }
@@ -200,6 +226,102 @@ public static class SmartPositionEngine
             return price.Value;
         diagnostics.Add($"Broker {fieldName} is invalid; the reconciled reference was cleared.");
         return null;
+    }
+
+    private static IReadOnlyList<string> ConfigurePartialProfit(SmartPositionState state, SmartPositionSettings settings)
+    {
+        var diagnostics = new List<string>();
+        var plan = new SmartPartialProfitPlan { Enabled = settings.FinancialPartialProfitEnabled };
+        var triggerValid = settings.FirstPartialProfitTriggerPrice.HasValue &&
+                           IsFinitePositive(settings.FirstPartialProfitTriggerPrice.Value) &&
+                           IsValidFavorableTrigger(state.Direction, state.EntryPrice, settings.FirstPartialProfitTriggerPrice.Value);
+        var closePercentValid = settings.PartialProfitClosePercent.HasValue &&
+                                settings.PartialProfitClosePercent.Value > 0 &&
+                                settings.PartialProfitClosePercent.Value <= 100 &&
+                                !double.IsNaN(settings.PartialProfitClosePercent.Value) &&
+                                !double.IsInfinity(settings.PartialProfitClosePercent.Value);
+
+        if (triggerValid)
+            plan.TriggerPrice = settings.FirstPartialProfitTriggerPrice!.Value;
+        if (closePercentValid)
+            plan.ClosePercent = settings.PartialProfitClosePercent!.Value;
+
+        if (plan.Enabled && (!triggerValid || !closePercentValid))
+        {
+            plan.Enabled = false;
+            diagnostics.Add("First partial-profit trigger/close percentage is invalid; financial partial profit was disabled.");
+        }
+
+        state.PartialProfit = plan;
+        state.PendingPartialProfitAction = null;
+        state.FirstPartialProfitCompleted = false;
+        state.FirstPartialProfitCompletedAtUtc = null;
+        return diagnostics;
+    }
+
+    private static IReadOnlyList<SmartPositionAction> EvaluateFirstPartialProfit(
+        SmartPositionState state,
+        SmartPositionSnapshot snapshot,
+        ICollection<string> diagnostics)
+    {
+        state.PartialProfit ??= new SmartPartialProfitPlan();
+        ConfirmPendingPartialProfit(state, snapshot);
+
+        if (!state.PartialProfit.Enabled || state.FirstPartialProfitCompleted || state.PendingPartialProfitAction != null)
+            return Array.Empty<SmartPositionAction>();
+        if (!snapshot.ObservedPrice.HasValue || !IsFinitePositive(snapshot.ObservedPrice.Value))
+            return Array.Empty<SmartPositionAction>();
+        if (!IsFavorableTriggerReached(state.Direction, snapshot.ObservedPrice.Value, state.PartialProfit.TriggerPrice))
+            return Array.Empty<SmartPositionAction>();
+        if (!IsFinitePositive(state.CurrentVolumeInUnits))
+        {
+            diagnostics.Add("First partial profit requires a finite positive reconciled broker volume.");
+            return Array.Empty<SmartPositionAction>();
+        }
+
+        var requestedCloseVolume = state.CurrentVolumeInUnits * state.PartialProfit.ClosePercent / 100.0;
+        if (!IsFinitePositive(requestedCloseVolume) || requestedCloseVolume > state.CurrentVolumeInUnits)
+        {
+            diagnostics.Add("First partial-profit close volume is invalid; no financial action was emitted.");
+            return Array.Empty<SmartPositionAction>();
+        }
+
+        var action = new SmartPositionAction
+        {
+            ActionId = BuildPartialProfitActionId(state.PositionId, 1, requestedCloseVolume, snapshot.ObservedAtUtc),
+            ActionType = SmartPositionActionType.PartialClose,
+            PositionId = state.PositionId,
+            SymbolName = state.SymbolName,
+            Direction = state.Direction,
+            RequestedCloseVolumeInUnits = requestedCloseVolume,
+            PartialProfitStageIndex = 1,
+            RequestedAtUtc = snapshot.ObservedAtUtc
+        };
+        state.PendingPartialProfitAction = new SmartPendingPartialProfitAction
+        {
+            ActionId = action.ActionId,
+            StageIndex = 1,
+            BrokerVolumeAtRequest = state.CurrentVolumeInUnits,
+            RequestedCloseVolumeInUnits = requestedCloseVolume,
+            RequestedAtUtc = snapshot.ObservedAtUtc,
+            ExecutionStatus = SmartActionExecutionStatus.Pending
+        };
+        return new[] { action };
+    }
+
+    private static void ConfirmPendingPartialProfit(SmartPositionState state, SmartPositionSnapshot snapshot)
+    {
+        var pending = state.PendingPartialProfitAction;
+        if (pending == null)
+            return;
+
+        var tolerance = Math.Max(1e-9, Math.Abs(pending.BrokerVolumeAtRequest) * 1e-12);
+        if (state.CurrentVolumeInUnits < pending.BrokerVolumeAtRequest - tolerance)
+        {
+            state.FirstPartialProfitCompleted = true;
+            state.FirstPartialProfitCompletedAtUtc = snapshot.ObservedAtUtc;
+            state.PendingPartialProfitAction = null;
+        }
     }
 
     private static IReadOnlyList<string> ConfigureStopManagement(SmartPositionState state, SmartPositionSettings settings)
@@ -568,6 +690,9 @@ public static class SmartPositionEngine
     private static string BuildStopActionId(int positionId, SmartStopActionReason reason, double requestedStop, DateTime observedAtUtc) =>
         $"{positionId}:{reason}:{requestedStop.ToString("R", CultureInfo.InvariantCulture)}:{observedAtUtc.Ticks}";
 
+    private static string BuildPartialProfitActionId(int positionId, int stageIndex, double requestedCloseVolume, DateTime observedAtUtc) =>
+        $"{positionId}:PP:{stageIndex}:{requestedCloseVolume.ToString("R", CultureInfo.InvariantCulture)}:{observedAtUtc.Ticks}";
+
     private static bool IsValidTrigger(SmartAlertType alertType, SmartPositionDirection direction, double entryPrice, double triggerPrice) =>
         alertType == SmartAlertType.StopLoss || IsValidFavorableTrigger(direction, entryPrice, triggerPrice);
 
@@ -627,6 +752,10 @@ public static class SmartPositionEngine
             PhaseChangedAtUtc = state.PhaseChangedAtUtc,
             StopManagement = CloneStopManagement(state.StopManagement),
             PendingStopAction = ClonePendingStopAction(state.PendingStopAction),
+            PartialProfit = ClonePartialProfit(state.PartialProfit),
+            PendingPartialProfitAction = ClonePendingPartialProfitAction(state.PendingPartialProfitAction),
+            FirstPartialProfitCompleted = state.FirstPartialProfitCompleted,
+            FirstPartialProfitCompletedAtUtc = state.FirstPartialProfitCompletedAtUtc,
             AlertDefinitions = (state.AlertDefinitions ?? new List<SmartAlertDefinition>()).Select(CloneAlert).ToList()
         };
 
@@ -656,6 +785,31 @@ public static class SmartPositionEngine
                 Reason = pending.Reason,
                 RequestedStopPrice = pending.RequestedStopPrice,
                 TargetPhase = pending.TargetPhase,
+                RequestedAtUtc = pending.RequestedAtUtc,
+                ExecutionStatus = pending.ExecutionStatus,
+                DiagnosticError = pending.DiagnosticError
+            };
+
+    private static SmartPartialProfitPlan ClonePartialProfit(SmartPartialProfitPlan? plan)
+    {
+        plan ??= new SmartPartialProfitPlan();
+        return new SmartPartialProfitPlan
+        {
+            Enabled = plan.Enabled,
+            TriggerPrice = plan.TriggerPrice,
+            ClosePercent = plan.ClosePercent
+        };
+    }
+
+    private static SmartPendingPartialProfitAction? ClonePendingPartialProfitAction(SmartPendingPartialProfitAction? pending) =>
+        pending == null
+            ? null
+            : new SmartPendingPartialProfitAction
+            {
+                ActionId = pending.ActionId,
+                StageIndex = pending.StageIndex,
+                BrokerVolumeAtRequest = pending.BrokerVolumeAtRequest,
+                RequestedCloseVolumeInUnits = pending.RequestedCloseVolumeInUnits,
                 RequestedAtUtc = pending.RequestedAtUtc,
                 ExecutionStatus = pending.ExecutionStatus,
                 DiagnosticError = pending.DiagnosticError
