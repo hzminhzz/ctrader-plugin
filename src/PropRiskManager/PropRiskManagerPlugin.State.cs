@@ -31,6 +31,7 @@ public sealed partial class PropRiskManagerPlugin
 
         _runtimeState.PositionAutomation ??= new Dictionary<int, PositionAutomationState>();
         _runtimeState.SmartPositions ??= new Dictionary<int, SmartPositionState>();
+        _runtimeState.SmartAlertHistory ??= new List<SmartAlertEvent>();
         if (_runtimeState.DailyEquityPeak <= 0)
             _runtimeState.DailyEquityPeak = Math.Max(_runtimeState.DayStartEquity, Account.Equity);
     }
