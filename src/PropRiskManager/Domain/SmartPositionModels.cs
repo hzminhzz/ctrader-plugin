@@ -94,6 +94,9 @@ public sealed class SmartPositionState
     public double CurrentVolumeInUnits { get; set; }
     public double? InitialStopLoss { get; set; }
     public double? InitialTakeProfit { get; set; }
+    public double? CurrentStopLoss { get; set; }
+    public double? CurrentTakeProfit { get; set; }
+    public DateTime? LastReconciledAtUtc { get; set; }
     public DateTime MonitoringStartedAtUtc { get; set; }
     public SmartPositionPhase Phase { get; set; } = SmartPositionPhase.MonitoringPreBreakEven;
     public List<SmartAlertDefinition> AlertDefinitions { get; set; } = new();
