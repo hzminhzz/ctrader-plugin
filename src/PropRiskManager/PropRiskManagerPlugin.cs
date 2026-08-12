@@ -23,6 +23,9 @@ public sealed partial class PropRiskManagerPlugin : Plugin
     private AccountRuntimeState _runtimeState = new();
     private int _stateAccountNumber;
     private DateTime _lastPersistTime;
+    private bool _runtimeFaulted;
+    private string _runtimeFaultReason = string.Empty;
+    private int _runtimeExceptionCount;
 
     protected override void OnStart()
     {
@@ -46,6 +49,24 @@ public sealed partial class PropRiskManagerPlugin : Plugin
         RefreshPositionManagement();
         RefreshTradingStats(true);
         Timer.Start(TimeSpan.FromMilliseconds(250));
+    }
+
+    protected override void OnException(Exception exception)
+    {
+        _runtimeExceptionCount++;
+        _runtimeFaulted = true;
+        _runtimeFaultReason = $"Unhandled runtime exception #{_runtimeExceptionCount}: {exception.GetType().Name}: {exception.Message}";
+        Print($"PropRiskManager {_runtimeFaultReason}\n{exception.StackTrace}");
+
+        if (_status != null)
+            _status.Text = "TRADING BLOCKED: " + _runtimeFaultReason + " Restart the plugin after resolving the error.";
+    }
+
+    protected override void OnError(Error error)
+    {
+        Print($"PropRiskManager trade operation error: {error}");
+        if (_status != null)
+            _status.Text = $"Trade operation error: {error}";
     }
 
     protected override void OnStop()
