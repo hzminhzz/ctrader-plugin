@@ -34,8 +34,8 @@ public sealed partial class PropRiskManagerPlugin
 
     private void BuildPropFirmProtectionPanel()
     {
-        var block = Asp.SymbolTab.AddBlock("Prop Firm Protection");
-        block.Height = 335;
+        var block = Asp.SymbolTab.AddBlock("Prop Firm Guardian");
+        ConfigureAspBlock(block, 335);
         var root = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(8) };
 
         root.AddChild(new TextBlock
