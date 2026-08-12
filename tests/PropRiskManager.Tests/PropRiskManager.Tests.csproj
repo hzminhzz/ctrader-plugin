@@ -16,6 +16,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/PropRiskManager/PropRiskManager.csproj" />
+    <Compile Include="../../src/PropRiskManager/State/PropFirmSettings.cs" Link="Source/PropFirmSettings.cs" />
+    <Compile Include="../../src/PropRiskManager/State/PositionAutomationState.cs" Link="Source/PositionAutomationState.cs" />
+    <Compile Include="../../src/PropRiskManager/State/AccountRuntimeState.cs" Link="Source/AccountRuntimeState.cs" />
+    <Compile Include="../../src/PropRiskManager/State/AccountStateManager.cs" Link="Source/AccountStateManager.cs" />
+    <Compile Include="../../src/PropRiskManager/Risk/PropFirmGuardianEngine.cs" Link="Source/PropFirmGuardianEngine.cs" />
   </ItemGroup>
 </Project>
