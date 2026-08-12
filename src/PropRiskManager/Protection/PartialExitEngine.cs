@@ -75,7 +75,7 @@ public static class PartialExitEngine
 
             var volumeBefore = position.VolumeInUnits;
             var result = PositionManagementService.CloseVolume(position, closeVolume, symbol);
-            if (!result.IsSuccessful)
+            if (result == null || !result.IsSuccessful)
                 continue;
 
             fired.Add(index);
