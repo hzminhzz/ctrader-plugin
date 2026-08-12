@@ -41,6 +41,7 @@ public sealed partial class PropRiskManagerPlugin : Plugin
         Account.Switched += OnAccountSwitched;
 
         BindToActiveChart();
+        InitializeTradeHotkeys();
         RefreshPositionManagement();
         RefreshTradingStats(true);
         Timer.Start(TimeSpan.FromMilliseconds(250));
@@ -49,6 +50,7 @@ public sealed partial class PropRiskManagerPlugin : Plugin
     protected override void OnStop()
     {
         SaveAccountState();
+        DisposeTradeHotkeys();
         ChartManager.ActiveFrameChanged -= OnActiveFrameChanged;
         Account.Switched -= OnAccountSwitched;
         UnbindChart();
