@@ -13,6 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="../../src/PropRiskManager/Domain/SmartPositionModels.cs" Link="Source/SmartPositionModels.cs" />
+    <Compile Include="../../src/PropRiskManager/Domain/SmartPositionEngine.cs" Link="Source/SmartPositionEngine.cs" />
     <Compile Include="../../src/PropRiskManager/State/PropFirmSettings.cs" Link="Source/PropFirmSettings.cs" />
     <Compile Include="../../src/PropRiskManager/State/PositionAutomationState.cs" Link="Source/PositionAutomationState.cs" />
     <Compile Include="../../src/PropRiskManager/State/AccountRuntimeState.cs" Link="Source/AccountRuntimeState.cs" />

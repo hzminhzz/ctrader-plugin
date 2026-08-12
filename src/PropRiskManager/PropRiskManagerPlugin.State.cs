@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using cAlgo.API;
+using PropRiskManager.Domain;
 using PropRiskManager.State;
 
 namespace PropRiskManager;
@@ -29,6 +30,7 @@ public sealed partial class PropRiskManagerPlugin
             _runtimeState = AccountStateManager.Create(_stateAccountNumber, tradingDay, Account.Balance, Account.Equity);
 
         _runtimeState.PositionAutomation ??= new Dictionary<int, PositionAutomationState>();
+        _runtimeState.SmartPositions ??= new Dictionary<int, SmartPositionState>();
         if (_runtimeState.DailyEquityPeak <= 0)
             _runtimeState.DailyEquityPeak = Math.Max(_runtimeState.DayStartEquity, Account.Equity);
     }
