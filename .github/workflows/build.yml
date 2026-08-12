@@ -15,18 +15,16 @@ jobs:
         with:
           dotnet-version: '6.0.x'
       - name: Restore plugin
-        run: dotnet restore src/PropRiskManager/PropRiskManager.csproj
+        run: dotnet restore src/PropRiskManager/Project/PropRiskManager.csproj
       - name: Restore tests
         run: dotnet restore tests/PropRiskManager.Tests/PropRiskManager.Tests.csproj
       - name: Build
-        run: dotnet build src/PropRiskManager/PropRiskManager.csproj --configuration Release --no-restore
+        run: dotnet build src/PropRiskManager/Project/PropRiskManager.csproj --configuration Release --no-restore
       - name: Test
         run: dotnet test tests/PropRiskManager.Tests/PropRiskManager.Tests.csproj --configuration Release --no-restore
-      - name: Prepare cTrader package
-        run: cp src/PropRiskManager/bin/Release/net6.0/src.algo src/PropRiskManager/bin/Release/net6.0/PropRiskManager.algo
       - name: Upload cTrader plugin
         uses: actions/upload-artifact@v4
         with:
           name: PropRiskManager-algo
-          path: src/PropRiskManager/bin/Release/net6.0/PropRiskManager.algo
+          path: src/PropRiskManager/Project/bin/Release/net6.0/PropRiskManager.algo
           if-no-files-found: error
