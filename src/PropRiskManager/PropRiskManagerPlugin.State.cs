@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using cAlgo.API;
 using PropRiskManager.State;
 
@@ -18,11 +19,15 @@ public sealed partial class PropRiskManagerPlugin
     {
         _stateAccountNumber = Account.Number;
         _settings = LocalStorage.GetObject<PluginSettings>(SettingsKey(_stateAccountNumber), LocalStorageScope.Type) ?? new PluginSettings();
+        _settings.EnsurePartialExitDefaults();
+
         _runtimeState = LocalStorage.GetObject<AccountRuntimeState>(RuntimeKey(_stateAccountNumber), LocalStorageScope.Type)
             ?? AccountStateManager.Create(_stateAccountNumber, Server.Time.Date, Account.Balance, Account.Equity);
 
         if (_runtimeState.AccountNumber != _stateAccountNumber)
             _runtimeState = AccountStateManager.Create(_stateAccountNumber, Server.Time.Date, Account.Balance, Account.Equity);
+
+        _runtimeState.PositionAutomation ??= new Dictionary<int, PositionAutomationState>();
     }
 
     private void SaveAccountState()
@@ -45,12 +50,14 @@ public sealed partial class PropRiskManagerPlugin
     {
         CaptureTradeSettingsFromUi();
         CaptureManagementSettingsFromUi();
+        CapturePartialExitSettingsFromUi();
     }
 
     private void ApplySettingsToUi()
     {
         ApplyTradeSettingsToUi();
         ApplyManagementSettingsToUi();
+        ApplyPartialExitSettingsToUi();
     }
 
     private static string SettingsKey(int accountNumber) => $"PRM Settings {accountNumber}";
