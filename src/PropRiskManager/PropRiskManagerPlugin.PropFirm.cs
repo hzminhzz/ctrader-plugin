@@ -30,6 +30,7 @@ public sealed partial class PropRiskManagerPlugin
     private TextBlock _propDrawdowns = null!;
     private TextBlock _propDayPnl = null!;
     private TextBlock _propConsistency = null!;
+    private DateTime _lastGuardianLiquidationAttempt;
 
     private void BuildPropFirmProtectionPanel()
     {
@@ -120,8 +121,12 @@ public sealed partial class PropRiskManagerPlugin
         _runtimeState.TradingBlocked = snapshot.ShouldBlockTrading;
         _runtimeState.BlockReason = snapshot.BlockReason;
 
-        if (snapshot.HardDrawdownBreach && _settings.PropFirm.AutoCloseOnDrawdownBreach)
+        if (snapshot.HardDrawdownBreach &&
+            _settings.PropFirm.AutoCloseOnDrawdownBreach &&
+            Server.Time >= _lastGuardianLiquidationAttempt.AddSeconds(2) &&
+            (Positions.Any() || PendingOrders.Any()))
         {
+            _lastGuardianLiquidationAttempt = Server.Time;
             PositionManagementService.Close(Positions);
             PositionManagementService.Cancel(PendingOrders);
         }
