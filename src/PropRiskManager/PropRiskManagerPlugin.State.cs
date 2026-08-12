@@ -59,6 +59,7 @@ public sealed partial class PropRiskManagerPlugin
         CaptureManagementSettingsFromUi();
         CapturePartialExitSettingsFromUi();
         CapturePropFirmSettingsFromUi();
+        CapturePropPreTradeSettingsFromUi();
     }
 
     private void ApplySettingsToUi()
@@ -67,6 +68,7 @@ public sealed partial class PropRiskManagerPlugin
         ApplyManagementSettingsToUi();
         ApplyPartialExitSettingsToUi();
         ApplyPropFirmSettingsToUi();
+        ApplyPropPreTradeSettingsToUi();
     }
 
     private static string SettingsKey(int accountNumber) => $"PRM Settings {accountNumber}";
