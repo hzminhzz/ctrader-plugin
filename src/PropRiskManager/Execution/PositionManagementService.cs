@@ -67,31 +67,8 @@ public static class PositionManagementService
         {
             attempted++;
             var symbol = getSymbol(position.SymbolName);
-            var targetRemaining = position.VolumeInUnits * (1.0 - closePercent / 100.0);
-
-            TradeResult result;
-            if (closePercent >= 100 || targetRemaining < symbol.VolumeInUnitsMin)
-            {
-                result = position.Close();
-            }
-            else
-            {
-                var normalizedRemaining = symbol.NormalizeVolumeInUnits(targetRemaining, RoundingMode.Down);
-                if (normalizedRemaining < symbol.VolumeInUnitsMin)
-                {
-                    result = position.Close();
-                }
-                else if (normalizedRemaining >= position.VolumeInUnits)
-                {
-                    lastError = $"Partial close for position {position.Id} rounds to no volume change.";
-                    continue;
-                }
-                else
-                {
-                    result = position.ModifyVolume(normalizedRemaining);
-                }
-            }
-
+            var closeVolume = position.VolumeInUnits * closePercent / 100.0;
+            var result = CloseVolume(position, closeVolume, symbol);
             if (result.IsSuccessful)
                 succeeded++;
             else
@@ -99,6 +76,28 @@ public static class PositionManagementService
         }
 
         return new ManagementResult(attempted, succeeded, lastError);
+    }
+
+    public static TradeResult CloseVolume(Position position, double closeVolumeInUnits, Symbol symbol)
+    {
+        if (closeVolumeInUnits <= 0)
+            throw new ArgumentOutOfRangeException(nameof(closeVolumeInUnits));
+
+        if (closeVolumeInUnits >= position.VolumeInUnits)
+            return position.Close();
+
+        var requestedRemaining = position.VolumeInUnits - closeVolumeInUnits;
+        if (requestedRemaining < symbol.VolumeInUnitsMin)
+            return position.Close();
+
+        var normalizedRemaining = symbol.NormalizeVolumeInUnits(requestedRemaining, RoundingMode.Down);
+        if (normalizedRemaining < symbol.VolumeInUnitsMin)
+            return position.Close();
+
+        if (normalizedRemaining >= position.VolumeInUnits)
+            return position.ModifyVolume(position.VolumeInUnits);
+
+        return position.ModifyVolume(normalizedRemaining);
     }
 
     public static ManagementResult MoveToBreakEven(
