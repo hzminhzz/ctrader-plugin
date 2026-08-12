@@ -12,6 +12,7 @@ public static class AccountStateManager
             TradingDay = tradingDay.Date,
             DayStartBalance = balance,
             DayStartEquity = equity,
+            DailyEquityPeak = equity,
             BalancePeak = balance,
             EquityPeak = equity
         };
@@ -25,8 +26,10 @@ public static class AccountStateManager
             state.TradingDay = day;
             state.DayStartBalance = balance;
             state.DayStartEquity = equity;
+            state.DailyEquityPeak = equity;
         }
 
+        state.DailyEquityPeak = Math.Max(state.DailyEquityPeak, equity);
         state.BalancePeak = Math.Max(state.BalancePeak, balance);
         state.EquityPeak = Math.Max(state.EquityPeak, equity);
     }
