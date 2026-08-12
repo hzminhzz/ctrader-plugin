@@ -257,12 +257,6 @@ public sealed partial class PropRiskManagerPlugin
         if (_symbol == null)
             return;
 
-        if (_runtimeState.TradingBlocked)
-        {
-            _status.Text = "BLOCKED: " + _runtimeState.BlockReason;
-            return;
-        }
-
         if (!TryBuildPlan(tradeType, out var plan, out var reason))
         {
             _status.Text = reason;
@@ -280,6 +274,12 @@ public sealed partial class PropRiskManagerPlugin
         if (!gate.Allowed)
         {
             _status.Text = "BLOCKED: " + gate.Reason;
+            return;
+        }
+
+        if (!AllowByPropLossRoom(plan))
+        {
+            _status.Text = _preTradeRoomStatus.Text;
             return;
         }
 
