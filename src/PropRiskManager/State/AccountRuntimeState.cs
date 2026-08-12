@@ -17,4 +17,5 @@ public sealed class AccountRuntimeState
     public string BlockReason { get; set; } = string.Empty;
     public Dictionary<int, PositionAutomationState> PositionAutomation { get; set; } = new();
     public Dictionary<int, SmartPositionState> SmartPositions { get; set; } = new();
+    public List<SmartAlertEvent> SmartAlertHistory { get; set; } = new();
 }
