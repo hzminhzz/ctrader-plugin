@@ -28,11 +28,11 @@ public sealed partial class PropRiskManagerPlugin : Plugin
     {
         BuildTradeExecutionPanel();
         BuildAdvancedProtectionPanel();
-        BuildPropFirmProtectionPanel();
-        BuildPropPreTradePanel();
         BuildPositionManagementPanel();
         BuildPartialTakeProfitPanel();
         BuildPartialStopLossPanel();
+        BuildPropFirmProtectionPanel();
+        BuildPropPreTradePanel();
         BuildTradingStatsPanel();
 
         LoadAccountState();
