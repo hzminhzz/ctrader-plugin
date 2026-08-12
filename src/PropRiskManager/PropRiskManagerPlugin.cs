@@ -1,3 +1,5 @@
+using System;
+using System.Globalization;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using PropRiskManager.Domain;
@@ -11,6 +13,7 @@ public sealed class PropRiskManagerPlugin : Plugin
     private const string EntryLineName = "PRM_ENTRY";
     private const string StopLineName = "PRM_STOP";
     private const string TargetLineName = "PRM_TARGET";
+    private const string Label = "PropRiskManager";
 
     private Chart? _chart;
     private Symbol? _symbol;
@@ -18,76 +21,158 @@ public sealed class PropRiskManagerPlugin : Plugin
     private ChartHorizontalLine? _stopLine;
     private ChartHorizontalLine? _targetLine;
 
-    private TextBlock _status = null!;
+    private TextBlock _marketInfo = null!;
+    private TextBlock _orderTypeInfo = null!;
     private TextBlock _sizing = null!;
-    private TextBox _riskPercent = null!;
+    private TextBlock _status = null!;
+    private TextBox _entryPrice = null!;
+    private TextBox _riskValue = null!;
+    private TextBox _commissionPerLot = null!;
+    private TextBox _slPips = null!;
+    private TextBox _tpPips = null!;
     private TextBox _maxRiskPercent = null!;
     private TextBox _maxSpreadPips = null!;
+    private ComboBox _riskMode = null!;
+    private CheckBox _useEntryPrice = null!;
+    private CheckBox _useStopLoss = null!;
+    private CheckBox _useTakeProfit = null!;
+    private CheckBox _drawLines = null!;
 
     protected override void OnStart()
     {
-        BuildTradeWatchPanel();
+        BuildSymbolTabPanel();
         ChartManager.ActiveFrameChanged += OnActiveFrameChanged;
+        Account.Switched += OnAccountSwitched;
         BindToActiveChart();
+        Timer.Start(TimeSpan.FromMilliseconds(250));
     }
 
     protected override void OnStop()
     {
         ChartManager.ActiveFrameChanged -= OnActiveFrameChanged;
+        Account.Switched -= OnAccountSwitched;
         UnbindChart();
     }
 
-    private void BuildTradeWatchPanel()
+    protected override void OnTimer()
     {
-        var tab = TradeWatch.AddTab("Prop Risk Manager");
+        RefreshMarketInfo();
+        RecalculatePreview();
+    }
+
+    private void BuildSymbolTabPanel()
+    {
+        var block = Asp.SymbolTab.AddBlock("Prop Risk Manager");
+        block.IsExpanded = true;
+        block.Height = 440;
+
         var root = new StackPanel
         {
             Orientation = Orientation.Vertical,
-            Margin = new Thickness(10),
-            Width = 280
+            Margin = new Thickness(8)
         };
 
         root.AddChild(new TextBlock
         {
-            Text = "PROP RISK MANAGER",
-            FontSize = 18,
+            Text = "⚡ TRADE EXECUTION",
+            FontSize = 16,
             FontWeight = FontWeight.Bold,
-            Margin = new Thickness(0, 0, 0, 10)
+            Margin = new Thickness(0, 0, 0, 6)
         });
 
-        _riskPercent = AddInput(root, "Risk %", "0.50");
-        _maxRiskPercent = AddInput(root, "Max risk %", "1.00");
-        _maxSpreadPips = AddInput(root, "Max spread (pips)", "3.0");
+        _marketInfo = new TextBlock { Margin = new Thickness(0, 0, 0, 6) };
+        root.AddChild(_marketInfo);
 
-        var buy = new Button { Text = "BUY", Height = 30, Margin = new Thickness(0, 8, 0, 3) };
+        var tradeButtons = new Grid(1, 2);
+        var buy = new Button { Text = "BUY", Height = 42, Margin = new Thickness(2) };
+        var sell = new Button { Text = "SELL", Height = 42, Margin = new Thickness(2) };
         buy.Click += _ => Execute(TradeType.Buy);
-        root.AddChild(buy);
-
-        var sell = new Button { Text = "SELL", Height = 30, Margin = new Thickness(0, 3, 0, 8) };
         sell.Click += _ => Execute(TradeType.Sell);
-        root.AddChild(sell);
+        tradeButtons.AddChild(buy, 0, 0);
+        tradeButtons.AddChild(sell, 0, 1);
+        root.AddChild(tradeButtons);
 
-        var reset = new Button { Text = "Reset chart lines", Height = 26 };
+        var priceRow = new Grid(1, 3) { Margin = new Thickness(0, 5, 0, 2) };
+        _useEntryPrice = new CheckBox { Text = "Price", IsChecked = false };
+        _entryPrice = new TextBox { Height = 24 };
+        _orderTypeInfo = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
+        priceRow.AddChild(_useEntryPrice, 0, 0);
+        priceRow.AddChild(_entryPrice, 0, 1);
+        priceRow.AddChild(_orderTypeInfo, 0, 2);
+        root.AddChild(priceRow);
+
+        var riskRow = new Grid(1, 3) { Margin = new Thickness(0, 2, 0, 2) };
+        _riskValue = new TextBox { Text = "1.0", Height = 24 };
+        _riskMode = new ComboBox { Height = 24 };
+        _riskMode.AddItem("% Equity");
+        _riskMode.AddItem("% Balance");
+        _riskMode.AddItem("% Free Margin");
+        _riskMode.AddItem("Fixed $");
+        _riskMode.AddItem("Fixed Lots");
+        _riskMode.SelectedItem = "% Equity";
+        _sizing = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
+        riskRow.AddChild(_riskValue, 0, 0);
+        riskRow.AddChild(_riskMode, 0, 1);
+        riskRow.AddChild(_sizing, 0, 2);
+        root.AddChild(LabeledRow("Risk", riskRow));
+
+        _commissionPerLot = AddInput(root, "Commission / lot", "0");
+
+        var slRow = new Grid(1, 2);
+        _useStopLoss = new CheckBox { Text = "SL Pips", IsChecked = true };
+        _slPips = new TextBox { Text = "20", Height = 24 };
+        slRow.AddChild(_useStopLoss, 0, 0);
+        slRow.AddChild(_slPips, 0, 1);
+        root.AddChild(slRow);
+
+        var tpRow = new Grid(1, 2);
+        _useTakeProfit = new CheckBox { Text = "TP Pips", IsChecked = true };
+        _tpPips = new TextBox { Text = "40", Height = 24 };
+        tpRow.AddChild(_useTakeProfit, 0, 0);
+        tpRow.AddChild(_tpPips, 0, 1);
+        root.AddChild(tpRow);
+
+        _drawLines = new CheckBox { Text = "Draw and drag lines", IsChecked = true };
+        root.AddChild(_drawLines);
+
+        _maxRiskPercent = AddInput(root, "Max risk %", "5.0");
+        _maxSpreadPips = AddInput(root, "Max spread pips", "0");
+
+        var reset = new Button { Text = "Reset trade lines", Height = 26, Margin = new Thickness(0, 5, 0, 2) };
         reset.Click += _ => ResetLines();
         root.AddChild(reset);
 
-        _sizing = new TextBlock { Margin = new Thickness(0, 10, 0, 3) };
-        _status = new TextBlock { Text = "Select an active chart." };
-        root.AddChild(_sizing);
+        _status = new TextBlock { Text = "Select an active chart.", Margin = new Thickness(0, 5, 0, 0) };
         root.AddChild(_status);
 
-        tab.Child = root;
+        block.Child = root;
     }
 
     private static TextBox AddInput(StackPanel root, string label, string initialValue)
     {
-        root.AddChild(new TextBlock { Text = label, Margin = new Thickness(0, 4, 0, 2) });
+        var row = new Grid(1, 2) { Margin = new Thickness(0, 2, 0, 2) };
+        row.AddChild(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center }, 0, 0);
         var box = new TextBox { Text = initialValue, Height = 24 };
-        root.AddChild(box);
+        row.AddChild(box, 0, 1);
+        root.AddChild(row);
         return box;
     }
 
+    private static Grid LabeledRow(string label, Control control)
+    {
+        var row = new Grid(1, 2);
+        row.AddChild(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center }, 0, 0);
+        row.AddChild(control, 0, 1);
+        return row;
+    }
+
     private void OnActiveFrameChanged(ActiveFrameChangedEventArgs args) => BindToActiveChart();
+
+    private void OnAccountSwitched(AccountSwitchedEventArgs args)
+    {
+        RefreshMarketInfo();
+        RecalculatePreview();
+    }
 
     private void BindToActiveChart()
     {
@@ -103,6 +188,7 @@ public sealed class PropRiskManagerPlugin : Plugin
         _symbol = frame.Symbol;
         _chart.ObjectsUpdated += OnChartObjectsUpdated;
         DrawInitialLines();
+        RefreshMarketInfo();
         RecalculatePreview();
     }
 
@@ -124,12 +210,13 @@ public sealed class PropRiskManagerPlugin : Plugin
             return;
 
         var entry = (_symbol.Bid + _symbol.Ask) / 2.0;
-        var stop = entry - 20 * _symbol.PipSize;
-        var target = entry + 40 * _symbol.PipSize;
+        var sl = ParsePositive(_slPips.Text, 20);
+        var tp = ParsePositive(_tpPips.Text, 40);
 
+        _entryPrice.Text = entry.ToString("F" + _symbol.Digits, CultureInfo.InvariantCulture);
         _entryLine = _chart.DrawHorizontalLine(EntryLineName, entry, Color.DodgerBlue, 1, LineStyle.DotsRare);
-        _stopLine = _chart.DrawHorizontalLine(StopLineName, stop, Color.OrangeRed, 2, LineStyle.Solid);
-        _targetLine = _chart.DrawHorizontalLine(TargetLineName, target, Color.SeaGreen, 2, LineStyle.Solid);
+        _stopLine = _chart.DrawHorizontalLine(StopLineName, entry - sl * _symbol.PipSize, Color.OrangeRed, 2, LineStyle.Solid);
+        _targetLine = _chart.DrawHorizontalLine(TargetLineName, entry + tp * _symbol.PipSize, Color.SeaGreen, 2, LineStyle.Solid);
 
         _entryLine.IsInteractive = true;
         _stopLine.IsInteractive = true;
@@ -145,19 +232,61 @@ public sealed class PropRiskManagerPlugin : Plugin
         RecalculatePreview();
     }
 
-    private void OnChartObjectsUpdated(ChartObjectsUpdatedEventArgs args) => RecalculatePreview();
+    private void OnChartObjectsUpdated(ChartObjectsUpdatedEventArgs args)
+    {
+        if (_symbol == null)
+            return;
+
+        if (_entryLine != null)
+            _entryPrice.Text = _entryLine.Y.ToString("F" + _symbol.Digits, CultureInfo.InvariantCulture);
+
+        if (_entryLine != null && _stopLine != null)
+            _slPips.Text = (Math.Abs(_entryLine.Y - _stopLine.Y) / _symbol.PipSize).ToString("F1", CultureInfo.InvariantCulture);
+
+        if (_entryLine != null && _targetLine != null)
+            _tpPips.Text = (Math.Abs(_targetLine.Y - _entryLine.Y) / _symbol.PipSize).ToString("F1", CultureInfo.InvariantCulture);
+
+        RecalculatePreview();
+    }
+
+    private void RefreshMarketInfo()
+    {
+        if (_symbol == null)
+            return;
+
+        var spreadPips = _symbol.Spread / _symbol.PipSize;
+        var commission = ParseNonNegative(_commissionPerLot.Text, 0);
+        _marketInfo.Text = $"{_symbol.Name}   Spread: {spreadPips:F1} pips   Commission: {commission:F2}/lot   Pip: {_symbol.PipValue:G6}";
+    }
 
     private void RecalculatePreview()
     {
-        if (!TryBuildPlan(TradeType.Buy, out var plan, out var reason))
+        if (_symbol == null)
+            return;
+
+        var previewType = InferDirectionFromStop();
+        if (!TryBuildPlan(previewType, out var plan, out var reason))
         {
-            _sizing.Text = string.Empty;
+            _sizing.Text = "Volume: --";
             _status.Text = reason;
             return;
         }
 
-        _sizing.Text = $"{_symbol!.Name} | {plan.QuantityLots:F2} lots | {plan.StopLossPips:F1} pip SL | R:R {plan.RewardRiskRatio:F2}";
-        _status.Text = "Preview uses BUY geometry. SELL is validated again on click.";
+        _sizing.Text = $"Volume: {plan.QuantityLots:F2} lots";
+        _orderTypeInfo.Text = plan.OrderKind == OrderKind.Market ? "Market Execution" : plan.OrderKind.ToString();
+        _status.Text = $"Risk {plan.RiskAmount:F2} | SL {plan.StopLossPips:F1} pips | R:R {plan.RewardRiskRatio:F2}";
+    }
+
+    private TradeType InferDirectionFromStop()
+    {
+        if (_symbol == null || _stopLine == null)
+            return TradeType.Buy;
+
+        var reference = _useEntryPrice.IsChecked == true && TryParsePositive(_entryPrice.Text, out var manualEntry)
+            ? manualEntry
+            : (_symbol.Bid + _symbol.Ask) / 2.0;
+
+        return _stopLine.Y < reference ? TradeType.Buy : TradeType.Sell;
     }
 
     private void Execute(TradeType tradeType)
@@ -171,8 +300,8 @@ public sealed class PropRiskManagerPlugin : Plugin
             return;
         }
 
-        var maxRisk = ParsePositive(_maxRiskPercent.Text, 1.0);
-        var maxSpread = ParsePositive(_maxSpreadPips.Text, 3.0);
+        var maxRisk = ParseNonNegative(_maxRiskPercent.Text, 5.0);
+        var maxSpread = ParseNonNegative(_maxSpreadPips.Text, 0);
         var gate = PreTradeRiskGate.Evaluate(_symbol, plan, maxSpread, maxRisk);
         if (!gate.Allowed)
         {
@@ -180,16 +309,24 @@ public sealed class PropRiskManagerPlugin : Plugin
             return;
         }
 
-        var result = ExecuteMarketOrder(
-            tradeType,
-            _symbol.Name,
-            plan.VolumeInUnits,
-            "PropRiskManager",
-            plan.StopLossPips,
-            plan.TakeProfitPips);
+        TradeResult result;
+        switch (plan.OrderKind)
+        {
+            case OrderKind.Market:
+                result = ExecuteMarketOrder(tradeType, _symbol.Name, plan.VolumeInUnits, Label, plan.StopLossPips, plan.TakeProfitPips);
+                break;
+            case OrderKind.Limit:
+                result = PlaceLimitOrder(tradeType, _symbol.Name, plan.VolumeInUnits, plan.EntryPrice, Label, plan.StopLossPips, plan.TakeProfitPips);
+                break;
+            case OrderKind.Stop:
+                result = PlaceStopOrder(tradeType, _symbol.Name, plan.VolumeInUnits, plan.EntryPrice, Label, plan.StopLossPips, plan.TakeProfitPips);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
 
         _status.Text = result.IsSuccessful
-            ? $"Executed {tradeType} {plan.QuantityLots:F2} lots."
+            ? $"{plan.OrderKind} {tradeType}: {plan.QuantityLots:F2} lots submitted."
             : $"Execution error: {result.Error}";
     }
 
@@ -198,27 +335,43 @@ public sealed class PropRiskManagerPlugin : Plugin
         plan = null!;
         reason = string.Empty;
 
-        if (_symbol == null || _entryLine == null || _stopLine == null || _targetLine == null)
+        if (_symbol == null || _stopLine == null || _targetLine == null)
         {
             reason = "Chart lines are not ready.";
             return false;
         }
 
+        if (_useStopLoss.IsChecked != true)
+        {
+            reason = "Phase 2 requires an enabled stop loss for risk sizing.";
+            return false;
+        }
+
         try
         {
-            var riskPercent = ParsePositive(_riskPercent.Text, 0.5);
-            var entry = tradeType == TradeType.Buy ? _symbol.Ask : _symbol.Bid;
+            var riskMode = GetRiskMode();
+            var riskInput = ParsePositive(_riskValue.Text, riskMode == RiskMode.FixedLots ? 0.01 : 1.0);
+            var useManualEntry = _useEntryPrice.IsChecked == true;
+            var marketPrice = tradeType == TradeType.Buy ? _symbol.Ask : _symbol.Bid;
+            var entry = useManualEntry ? ParsePositive(_entryPrice.Text, marketPrice) : marketPrice;
+            var orderKind = DetectOrderKind(tradeType, useManualEntry, entry);
             var stop = _stopLine.Y;
-            var target = _targetLine.Y;
+            var target = _useTakeProfit.IsChecked == true ? _targetLine.Y : (double?)null;
+            var commission = ParseNonNegative(_commissionPerLot.Text, 0);
 
             plan = PositionSizer.BuildPlan(
                 _symbol,
                 tradeType,
+                orderKind,
+                riskMode,
+                riskInput,
                 entry,
                 stop,
                 target,
                 Account.Equity,
-                riskPercent);
+                Account.Balance,
+                Account.FreeMargin,
+                commission);
 
             return true;
         }
@@ -229,8 +382,39 @@ public sealed class PropRiskManagerPlugin : Plugin
         }
     }
 
-    private static double ParsePositive(string? text, double fallback)
+    private OrderKind DetectOrderKind(TradeType tradeType, bool useManualEntry, double entry)
     {
-        return double.TryParse(text, out var value) && value > 0 ? value : fallback;
+        if (_symbol == null || !useManualEntry)
+            return OrderKind.Market;
+
+        var market = tradeType == TradeType.Buy ? _symbol.Ask : _symbol.Bid;
+        if (Math.Abs(entry - market) < _symbol.TickSize)
+            return OrderKind.Market;
+
+        if (tradeType == TradeType.Buy)
+            return entry < _symbol.Ask ? OrderKind.Limit : OrderKind.Stop;
+
+        return entry > _symbol.Bid ? OrderKind.Limit : OrderKind.Stop;
     }
+
+    private RiskMode GetRiskMode()
+    {
+        return _riskMode.SelectedItem switch
+        {
+            "% Balance" => RiskMode.PercentBalance,
+            "% Free Margin" => RiskMode.PercentFreeMargin,
+            "Fixed $" => RiskMode.FixedAmount,
+            "Fixed Lots" => RiskMode.FixedLots,
+            _ => RiskMode.PercentEquity
+        };
+    }
+
+    private static double ParsePositive(string? text, double fallback)
+        => TryParsePositive(text, out var value) ? value : fallback;
+
+    private static bool TryParsePositive(string? text, out double value)
+        => double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && value > 0;
+
+    private static double ParseNonNegative(string? text, double fallback)
+        => double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && value >= 0 ? value : fallback;
 }
