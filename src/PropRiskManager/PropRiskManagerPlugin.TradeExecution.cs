@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Linq;
 using cAlgo.API;
 using PropRiskManager.Domain;
 using PropRiskManager.Risk;
@@ -24,11 +25,20 @@ public sealed partial class PropRiskManagerPlugin
     private CheckBox _useStopLoss = null!;
     private CheckBox _useTakeProfit = null!;
     private CheckBox _drawLines = null!;
+    private ChartText? _entryLabel;
+    private ChartText? _stopLabel;
+    private ChartText? _targetLabel;
+    private bool _syncingTradeControls;
+    private DateTime _lastLabelRefresh;
+
+    private const string EntryLabelName = "PRM_ENTRY_LABEL";
+    private const string StopLabelName = "PRM_STOP_LABEL";
+    private const string TargetLabelName = "PRM_TARGET_LABEL";
 
     private void BuildTradeExecutionPanel()
     {
         var block = Asp.SymbolTab.AddBlock("Prop Risk Manager");
-        block.Height = 440;
+        ConfigureAspBlock(block, 460);
 
         var root = new StackPanel
         {
@@ -48,8 +58,22 @@ public sealed partial class PropRiskManagerPlugin
         root.AddChild(_marketInfo);
 
         var tradeButtons = new Grid(1, 2);
-        var buy = new Button { Text = "BUY", Height = 42, Margin = new Thickness(2) };
-        var sell = new Button { Text = "SELL", Height = 42, Margin = new Thickness(2) };
+        var buy = new Button
+        {
+            Text = "BUY",
+            Height = 42,
+            Margin = new Thickness(2),
+            BackgroundColor = Color.SeaGreen,
+            ForegroundColor = Color.White
+        };
+        var sell = new Button
+        {
+            Text = "SELL",
+            Height = 42,
+            Margin = new Thickness(2),
+            BackgroundColor = Color.OrangeRed,
+            ForegroundColor = Color.White
+        };
         buy.Click += _ => Execute(TradeType.Buy);
         sell.Click += _ => Execute(TradeType.Sell);
         tradeButtons.AddChild(buy, 0, 0);
@@ -59,6 +83,7 @@ public sealed partial class PropRiskManagerPlugin
         var priceRow = new Grid(1, 3) { Margin = new Thickness(0, 5, 0, 2) };
         _useEntryPrice = new CheckBox { Text = "Price", IsChecked = false };
         _entryPrice = new TextBox { Height = 24 };
+        _entryPrice.TextChanged += _ => SyncLinesFromManualEntry();
         _orderTypeInfo = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
         priceRow.AddChild(_useEntryPrice, 0, 0);
         priceRow.AddChild(_entryPrice, 0, 1);
@@ -86,6 +111,7 @@ public sealed partial class PropRiskManagerPlugin
         var slRow = new Grid(1, 2);
         _useStopLoss = new CheckBox { Text = "SL Pips", IsChecked = true };
         _slPips = new TextBox { Text = "20", Height = 24 };
+        _slPips.TextChanged += _ => SyncLinesFromDistanceInputs();
         slRow.AddChild(_useStopLoss, 0, 0);
         slRow.AddChild(_slPips, 0, 1);
         root.AddChild(slRow);
@@ -93,11 +119,14 @@ public sealed partial class PropRiskManagerPlugin
         var tpRow = new Grid(1, 2);
         _useTakeProfit = new CheckBox { Text = "TP Pips", IsChecked = true };
         _tpPips = new TextBox { Text = "40", Height = 24 };
+        _tpPips.TextChanged += _ => SyncLinesFromDistanceInputs();
         tpRow.AddChild(_useTakeProfit, 0, 0);
         tpRow.AddChild(_tpPips, 0, 1);
         root.AddChild(tpRow);
 
         _drawLines = new CheckBox { Text = "Draw and drag lines", IsChecked = true };
+        _drawLines.Checked += _ => UpdateLineVisibility();
+        _drawLines.Unchecked += _ => UpdateLineVisibility();
         root.AddChild(_drawLines);
 
         _maxRiskPercent = AddInput(root, "Max risk %", "5.0");
@@ -107,7 +136,12 @@ public sealed partial class PropRiskManagerPlugin
         reset.Click += _ => ResetLines();
         root.AddChild(reset);
 
-        _status = new TextBlock { Text = "Select an active chart.", Margin = new Thickness(0, 5, 0, 0) };
+        _status = new TextBlock
+        {
+            Text = "Select an active chart.",
+            Margin = new Thickness(0, 5, 0, 0),
+            TextWrapping = TextWrapping.Wrap
+        };
         root.AddChild(_status);
 
         block.Child = root;
@@ -129,15 +163,21 @@ public sealed partial class PropRiskManagerPlugin
     {
         UnbindChart();
 
-        if (ChartManager.ActiveFrame is not ChartFrame frame)
+        var frame = ChartManager.ActiveFrame as ChartFrame
+            ?? ChartManager.OfType<ChartFrame>().FirstOrDefault(f => f.Chart.IsActive)
+            ?? ChartManager.OfType<ChartFrame>().FirstOrDefault(f => f.Chart.IsVisible)
+            ?? ChartManager.OfType<ChartFrame>().FirstOrDefault();
+
+        if (frame == null)
         {
-            _status.Text = "Active frame is not a chart.";
+            _status.Text = "No chart frame is available.";
             return;
         }
 
         _chart = frame.Chart;
         _symbol = frame.Symbol;
         _chart.ObjectsUpdated += OnChartObjectsUpdated;
+        _chart.ObjectsRemoved += OnChartObjectsRemoved;
         DrawInitialLines();
         RefreshMarketInfo();
         RecalculatePreview();
@@ -146,13 +186,20 @@ public sealed partial class PropRiskManagerPlugin
     private void UnbindChart()
     {
         if (_chart != null)
+        {
             _chart.ObjectsUpdated -= OnChartObjectsUpdated;
+            _chart.ObjectsRemoved -= OnChartObjectsRemoved;
+            RemoveTradeObjects(_chart);
+        }
 
         _chart = null;
         _symbol = null;
         _entryLine = null;
         _stopLine = null;
         _targetLine = null;
+        _entryLabel = null;
+        _stopLabel = null;
+        _targetLabel = null;
     }
 
     private void DrawInitialLines()
@@ -164,7 +211,10 @@ public sealed partial class PropRiskManagerPlugin
         var sl = ParsePositive(_slPips.Text, 20);
         var tp = ParsePositive(_tpPips.Text, 40);
 
+        _syncingTradeControls = true;
         _entryPrice.Text = entry.ToString("F" + _symbol.Digits, CultureInfo.InvariantCulture);
+        _syncingTradeControls = false;
+
         _entryLine = _chart.DrawHorizontalLine(EntryLineName, entry, Color.DodgerBlue, 1, LineStyle.DotsRare);
         _stopLine = _chart.DrawHorizontalLine(StopLineName, entry - sl * _symbol.PipSize, Color.OrangeRed, 2, LineStyle.Solid);
         _targetLine = _chart.DrawHorizontalLine(TargetLineName, entry + tp * _symbol.PipSize, Color.SeaGreen, 2, LineStyle.Solid);
@@ -172,6 +222,7 @@ public sealed partial class PropRiskManagerPlugin
         _entryLine.IsInteractive = true;
         _stopLine.IsInteractive = true;
         _targetLine.IsInteractive = true;
+        UpdateChartLineLabels();
         UpdateLineVisibility();
     }
 
@@ -193,23 +244,206 @@ public sealed partial class PropRiskManagerPlugin
             _stopLine.IsHidden = hidden;
         if (_targetLine != null)
             _targetLine.IsHidden = hidden;
+        if (_entryLabel != null)
+            _entryLabel.IsHidden = hidden;
+        if (_stopLabel != null)
+            _stopLabel.IsHidden = hidden;
+        if (_targetLabel != null)
+            _targetLabel.IsHidden = hidden;
     }
 
     private void OnChartObjectsUpdated(ChartObjectsUpdatedEventArgs args)
     {
-        if (_symbol == null)
+        if (_symbol == null || _syncingTradeControls)
             return;
 
-        if (_entryLine != null)
-            _entryPrice.Text = _entryLine.Y.ToString("F" + _symbol.Digits, CultureInfo.InvariantCulture);
+        _syncingTradeControls = true;
+        try
+        {
+            if (_entryLine != null)
+                _entryPrice.Text = _entryLine.Y.ToString("F" + _symbol.Digits, CultureInfo.InvariantCulture);
 
-        if (_entryLine != null && _stopLine != null)
-            _slPips.Text = (Math.Abs(_entryLine.Y - _stopLine.Y) / _symbol.PipSize).ToString("F1", CultureInfo.InvariantCulture);
+            if (_entryLine != null && _stopLine != null)
+                _slPips.Text = (Math.Abs(_entryLine.Y - _stopLine.Y) / _symbol.PipSize).ToString("F1", CultureInfo.InvariantCulture);
 
-        if (_entryLine != null && _targetLine != null)
-            _tpPips.Text = (Math.Abs(_targetLine.Y - _entryLine.Y) / _symbol.PipSize).ToString("F1", CultureInfo.InvariantCulture);
+            if (_entryLine != null && _targetLine != null)
+                _tpPips.Text = (Math.Abs(_targetLine.Y - _entryLine.Y) / _symbol.PipSize).ToString("F1", CultureInfo.InvariantCulture);
+        }
+        finally
+        {
+            _syncingTradeControls = false;
+        }
 
+        UpdateChartLineLabels();
         RecalculatePreview();
+    }
+
+    private void OnChartObjectsRemoved(ChartObjectsRemovedEventArgs args)
+    {
+        if (_drawLines.IsChecked != true || _chart == null || _symbol == null)
+            return;
+
+        if (_entryLine?.IsAlive != true || _stopLine?.IsAlive != true || _targetLine?.IsAlive != true)
+            DrawInitialLines();
+    }
+
+    private void SyncLinesFromDistanceInputs()
+    {
+        if (_syncingTradeControls || _symbol == null || _entryLine == null || _stopLine == null || _targetLine == null)
+            return;
+
+        var direction = InferDirectionFromStop();
+        var entry = _entryLine.Y;
+        if (_useEntryPrice.IsChecked == true && TryParsePositive(_entryPrice.Text, out var manualEntry))
+            entry = manualEntry;
+
+        _syncingTradeControls = true;
+        try
+        {
+            _entryLine.Y = entry;
+            ApplyProtectionDistances(direction, entry);
+        }
+        finally
+        {
+            _syncingTradeControls = false;
+        }
+
+        UpdateChartLineLabels();
+        RecalculatePreview();
+    }
+
+    private void SyncLinesFromManualEntry()
+    {
+        if (_syncingTradeControls || _useEntryPrice.IsChecked != true || _symbol == null ||
+            _entryLine == null || _stopLine == null || _targetLine == null ||
+            !TryParsePositive(_entryPrice.Text, out var entry))
+            return;
+
+        var direction = InferDirectionFromStop();
+        _syncingTradeControls = true;
+        try
+        {
+            _entryLine.Y = entry;
+            ApplyProtectionDistances(direction, entry);
+        }
+        finally
+        {
+            _syncingTradeControls = false;
+        }
+
+        UpdateChartLineLabels();
+        RecalculatePreview();
+    }
+
+    private void ApplyProtectionDistances(TradeType direction, double entry)
+    {
+        if (_symbol == null || _stopLine == null || _targetLine == null)
+            return;
+
+        if (TryParsePositive(_slPips.Text, out var slPips))
+        {
+            _stopLine.Y = direction == TradeType.Buy
+                ? entry - slPips * _symbol.PipSize
+                : entry + slPips * _symbol.PipSize;
+        }
+
+        if (TryParsePositive(_tpPips.Text, out var tpPips))
+        {
+            _targetLine.Y = direction == TradeType.Buy
+                ? entry + tpPips * _symbol.PipSize
+                : entry - tpPips * _symbol.PipSize;
+        }
+    }
+
+    private void EnsureLinesForDirection(TradeType tradeType)
+    {
+        if (_symbol == null || _entryLine == null || _stopLine == null || _targetLine == null)
+            return;
+
+        var marketEntry = tradeType == TradeType.Buy ? _symbol.Ask : _symbol.Bid;
+        var entry = _useEntryPrice.IsChecked == true && TryParsePositive(_entryPrice.Text, out var manualEntry)
+            ? manualEntry
+            : marketEntry;
+
+        var stopInvalid = tradeType == TradeType.Buy
+            ? _stopLine.Y >= entry
+            : _stopLine.Y <= entry;
+        var targetInvalid = _useTakeProfit.IsChecked == true && (tradeType == TradeType.Buy
+            ? _targetLine.Y <= entry
+            : _targetLine.Y >= entry);
+
+        if (!stopInvalid && !targetInvalid)
+            return;
+
+        _syncingTradeControls = true;
+        try
+        {
+            if (_useEntryPrice.IsChecked == true)
+                _entryLine.Y = entry;
+            ApplyProtectionDistances(tradeType, entry);
+        }
+        finally
+        {
+            _syncingTradeControls = false;
+        }
+
+        UpdateChartLineLabels();
+    }
+
+    private void UpdateChartLineLabels()
+    {
+        if (_chart == null || _symbol == null || _entryLine == null || _stopLine == null || _targetLine == null)
+            return;
+
+        var barIndex = Math.Max(_chart.FirstVisibleBarIndex, _chart.LastVisibleBarIndex - 6);
+        var entry = _entryLine.Y;
+        var slPips = Math.Abs(entry - _stopLine.Y) / _symbol.PipSize;
+        var tpPips = Math.Abs(_targetLine.Y - entry) / _symbol.PipSize;
+        var rr = slPips > 0 ? tpPips / slPips : 0;
+        var digits = _symbol.Digits;
+
+        _entryLabel = _chart.DrawText(
+            EntryLabelName,
+            $"ENTRY  {entry.ToString("F" + digits, CultureInfo.InvariantCulture)}",
+            barIndex,
+            entry,
+            Color.DodgerBlue);
+        _stopLabel = _chart.DrawText(
+            StopLabelName,
+            $"SL  {_stopLine.Y.ToString("F" + digits, CultureInfo.InvariantCulture)}  |  {slPips:F1} pips",
+            barIndex,
+            _stopLine.Y,
+            Color.OrangeRed);
+        _targetLabel = _chart.DrawText(
+            TargetLabelName,
+            $"TP  {_targetLine.Y.ToString("F" + digits, CultureInfo.InvariantCulture)}  |  {tpPips:F1} pips  |  R:R {rr:F2}",
+            barIndex,
+            _targetLine.Y,
+            Color.SeaGreen);
+
+        ConfigureLineLabel(_entryLabel);
+        ConfigureLineLabel(_stopLabel);
+        ConfigureLineLabel(_targetLabel);
+        UpdateLineVisibility();
+    }
+
+    private static void ConfigureLineLabel(ChartText label)
+    {
+        label.IsInteractive = false;
+        label.IsBold = true;
+        label.FontSize = 10;
+        label.HorizontalAlignment = HorizontalAlignment.Left;
+        label.VerticalAlignment = VerticalAlignment.Center;
+    }
+
+    private static void RemoveTradeObjects(Chart chart)
+    {
+        chart.RemoveObject(EntryLineName);
+        chart.RemoveObject(StopLineName);
+        chart.RemoveObject(TargetLineName);
+        chart.RemoveObject(EntryLabelName);
+        chart.RemoveObject(StopLabelName);
+        chart.RemoveObject(TargetLabelName);
     }
 
     private void RefreshMarketInfo()
@@ -220,6 +454,12 @@ public sealed partial class PropRiskManagerPlugin
         var spreadPips = _symbol.Spread / _symbol.PipSize;
         var commission = ParseNonNegative(_commissionPerLot.Text, 0);
         _marketInfo.Text = $"{_symbol.Name}   Spread: {spreadPips:F1} pips   Commission: {commission:F2}/lot   Pip: {_symbol.PipValue:G6}";
+
+        if (Server.Time >= _lastLabelRefresh.AddSeconds(1))
+        {
+            UpdateChartLineLabels();
+            _lastLabelRefresh = Server.Time;
+        }
     }
 
     private void RecalculatePreview()
@@ -256,6 +496,8 @@ public sealed partial class PropRiskManagerPlugin
     {
         if (_symbol == null)
             return;
+
+        EnsureLinesForDirection(tradeType);
 
         if (!TryBuildPlan(tradeType, out var plan, out var reason))
         {
