@@ -4,6 +4,7 @@ using System.Linq;
 using cAlgo.API;
 using cAlgo.API.Internals;
 using PropRiskManager.Domain;
+using PropRiskManager.Execution;
 using PropRiskManager.State;
 
 namespace PropRiskManager.Protection;
@@ -41,8 +42,7 @@ public static class ProtectionEngine
             ? position.EntryPrice + offsetPips * symbol.PipSize
             : position.EntryPrice - offsetPips * symbol.PipSize;
 
-        if (ImprovesStop(position, desiredStop, symbol.TickSize))
-            position.ModifyStopLossPrice(desiredStop);
+        PositionManagementService.ImproveStop(position, desiredStop, symbol);
     }
 
     private static void ApplyServerTrailing(Position position)
@@ -69,19 +69,6 @@ public static class ProtectionEngine
             ? symbol.Bid - trailingPips * symbol.PipSize
             : symbol.Ask + trailingPips * symbol.PipSize;
 
-        desiredStop = Math.Round(desiredStop, symbol.Digits);
-
-        if (ImprovesStop(position, desiredStop, symbol.TickSize))
-            position.ModifyStopLossPrice(desiredStop);
-    }
-
-    private static bool ImprovesStop(Position position, double desiredStop, double tickSize)
-    {
-        if (!position.StopLoss.HasValue)
-            return true;
-
-        return position.TradeType == TradeType.Buy
-            ? desiredStop > position.StopLoss.Value + tickSize / 2.0
-            : desiredStop < position.StopLoss.Value - tickSize / 2.0;
+        PositionManagementService.ImproveStop(position, desiredStop, symbol);
     }
 }

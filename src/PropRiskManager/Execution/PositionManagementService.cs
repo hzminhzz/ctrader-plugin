@@ -11,6 +11,18 @@ public sealed record ManagementResult(int Attempted, int Succeeded, string? Last
     public static ManagementResult Empty() => new(0, 0, null);
 }
 
+public enum StopModificationStatus
+{
+    NoOp,
+    Succeeded,
+    Failed
+}
+
+public sealed record StopModificationResult(
+    StopModificationStatus Status,
+    double NormalizedRequestedStopPrice,
+    string? Error);
+
 public static class PositionManagementService
 {
     public static ManagementResult Close(IEnumerable<Position> positions)
@@ -122,21 +134,29 @@ public static class PositionManagementService
             var desiredStop = position.TradeType == TradeType.Buy
                 ? position.EntryPrice + offsetPips * symbol.PipSize
                 : position.EntryPrice - offsetPips * symbol.PipSize;
-
-            if (!ImprovesStop(position, desiredStop, symbol.TickSize))
-            {
-                succeeded++;
-                continue;
-            }
-
-            var result = position.ModifyStopLossPrice(desiredStop);
-            if (result.IsSuccessful)
+            var stopResult = ImproveStop(position, desiredStop, symbol);
+            if (stopResult.Status is StopModificationStatus.Succeeded or StopModificationStatus.NoOp)
                 succeeded++;
             else
-                lastError = result.Error.ToString();
+                lastError = stopResult.Error;
         }
 
         return new ManagementResult(attempted, succeeded, lastError);
+    }
+
+    public static StopModificationResult ImproveStop(Position position, double desiredStop, Symbol symbol)
+    {
+        if (double.IsNaN(desiredStop) || double.IsInfinity(desiredStop) || desiredStop <= 0)
+            return new StopModificationResult(StopModificationStatus.Failed, desiredStop, "Requested stop price must be finite and positive.");
+
+        var normalizedStop = Math.Round(desiredStop, symbol.Digits);
+        if (!ImprovesStop(position, normalizedStop, symbol.TickSize))
+            return new StopModificationResult(StopModificationStatus.NoOp, normalizedStop, null);
+
+        var result = position.ModifyStopLossPrice(normalizedStop);
+        return result.IsSuccessful
+            ? new StopModificationResult(StopModificationStatus.Succeeded, normalizedStop, null)
+            : new StopModificationResult(StopModificationStatus.Failed, normalizedStop, result.Error.ToString());
     }
 
     private static bool ImprovesStop(Position position, double desiredStop, double tickSize)
