@@ -99,6 +99,15 @@ Acceptance: guardian formulas are unit-tested against explicit prop-firm rule ex
 
 Acceptance: stats are derived from cTrader history and match independently calculated test fixtures.
 
+## CI / packaging
+
+- [x] Restore and build plugin on every pull request
+- [x] Run pure risk/state MSTest suite
+- [x] Produce `PropRiskManager.algo`
+- [x] Upload `PropRiskManager-algo` build artifact
+
+Build run 119 is the first fully green build/test/package pipeline.
+
 ## Validation policy
 
 1. Compile after each phase before adding the next.
