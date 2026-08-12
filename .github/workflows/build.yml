@@ -15,7 +15,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '6.0.x'
-      - name: Restore
+      - name: Restore plugin
         run: dotnet restore src/PropRiskManager/PropRiskManager.csproj
+      - name: Restore tests
+        run: dotnet restore tests/PropRiskManager.Tests/PropRiskManager.Tests.csproj
       - name: Build
         run: dotnet build src/PropRiskManager/PropRiskManager.csproj --configuration Release --no-restore
+      - name: Test
+        run: dotnet test tests/PropRiskManager.Tests/PropRiskManager.Tests.csproj --configuration Release --no-restore
