@@ -12,13 +12,11 @@ public sealed partial class PropRiskManagerPlugin : Plugin
     private const string StopLineName = "PRM_STOP";
     private const string TargetLineName = "PRM_TARGET";
     private const string Label = "PropRiskManager";
-
     private Chart? _chart;
     private Symbol? _symbol;
     private ChartHorizontalLine? _entryLine;
     private ChartHorizontalLine? _stopLine;
     private ChartHorizontalLine? _targetLine;
-
     private PluginSettings _settings = new();
     private AccountRuntimeState _runtimeState = new();
     private int _stateAccountNumber;
@@ -31,24 +29,23 @@ public sealed partial class PropRiskManagerPlugin : Plugin
     {
         BuildTradeExecutionPanel();
         BuildAdvancedProtectionPanel();
+        BuildSmartDashboardPanel();
         BuildPositionManagementPanel();
         BuildPartialTakeProfitPanel();
         BuildPartialStopLossPanel();
         BuildPropFirmProtectionPanel();
         BuildPropPreTradePanel();
         BuildTradingStatsPanel();
-
         LoadAccountState();
         ApplySettingsToUi();
-
         ChartManager.ActiveFrameChanged += OnActiveFrameChanged;
         Account.Switched += OnAccountSwitched;
         Positions.Opened += OnSmartPositionOpened;
         Positions.Modified += OnSmartPositionModified;
         Positions.Closed += OnSmartPositionClosed;
-
         BindToActiveChart();
         InitializeTradeHotkeys();
+        RefreshSmartDashboard();
         RefreshPositionManagement();
         RefreshTradingStats(true);
         Timer.Start(TimeSpan.FromMilliseconds(250));
@@ -95,9 +92,9 @@ public sealed partial class PropRiskManagerPlugin : Plugin
         RunPartialExitAutomation();
         RunSmartPositionMonitoring();
         RunSmartPositionSafetyReconciliation();
+        RefreshSmartDashboard();
         RefreshPositionManagement();
         RefreshTradingStats();
-
         if (Server.Time >= _lastPersistTime.AddSeconds(2))
         {
             SaveAccountState();
