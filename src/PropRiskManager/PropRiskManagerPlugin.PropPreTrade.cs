@@ -14,8 +14,8 @@ public sealed partial class PropRiskManagerPlugin
 
     private void BuildPropPreTradePanel()
     {
-        var block = Asp.SymbolTab.AddBlock("Prop Pre-Trade Guard");
-        block.Height = 125;
+        var block = Asp.SymbolTab.AddBlock("Prop Pre-Trade Safety");
+        ConfigureAspBlock(block, 125);
         var root = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(8) };
 
         root.AddChild(new TextBlock
