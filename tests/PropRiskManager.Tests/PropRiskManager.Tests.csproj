@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.0" />
+    <PackageReference Include="MSTest.TestFramework" Version="3.10.4" />
+    <PackageReference Include="MSTest.TestAdapter" Version="3.10.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../../src/PropRiskManager/State/PropFirmSettings.cs" Link="Source/PropFirmSettings.cs" />
+    <Compile Include="../../src/PropRiskManager/State/PositionAutomationState.cs" Link="Source/PositionAutomationState.cs" />
+    <Compile Include="../../src/PropRiskManager/State/AccountRuntimeState.cs" Link="Source/AccountRuntimeState.cs" />
+    <Compile Include="../../src/PropRiskManager/State/AccountStateManager.cs" Link="Source/AccountStateManager.cs" />
+    <Compile Include="../../src/PropRiskManager/Risk/PropFirmGuardianEngine.cs" Link="Source/PropFirmGuardianEngine.cs" />
+    <Compile Include="../../src/PropRiskManager/Risk/PropFirmPreTradeGuard.cs" Link="Source/PropFirmPreTradeGuard.cs" />
+    <Compile Include="../../src/PropRiskManager/Risk/GuardianTradingClock.cs" Link="Source/GuardianTradingClock.cs" />
+  </ItemGroup>
+</Project>
