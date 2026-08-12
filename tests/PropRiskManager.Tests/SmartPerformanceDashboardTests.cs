@@ -33,13 +33,14 @@ public sealed class SmartPerformanceDashboardTests
     }
 
     [TestMethod]
-    public void PerformanceSeries_IsBoundedAtSixtySamples()
+    public void PerformanceSeries_IsBoundedAtSixtySamplesAndRebasesOldestRetainedSample()
     {
         SmartPerformanceSeriesState? state = null;
         for (var i = 0; i < 75; i++)
             state = SmartPerformanceSeriesEngine.AddSample(state, "EURUSD", 1.1000 + i * 0.00001, T0.AddSeconds(i * 2)).State;
         Assert.AreEqual(SmartPerformanceSeriesEngine.MaximumSamples, state!.Samples.Count);
         Assert.AreEqual(T0.AddSeconds(30), state.Samples[0].SampledAtUtc);
+        Assert.AreEqual(0, state.Samples[0].BasisPoints, 0.000001);
     }
 
     [TestMethod]
