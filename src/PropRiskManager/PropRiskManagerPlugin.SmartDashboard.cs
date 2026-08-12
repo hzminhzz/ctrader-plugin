@@ -55,7 +55,7 @@ public sealed partial class PropRiskManagerPlugin
         _smartSymbolDashboard = SmartDashboardCard();
         _smartLastUpdateDashboard = SmartDashboardCard();
         _smartAlertCountDashboard = SmartDashboardCard();
-        _smartContextualActionButton = new Button { Height = 56, Margin = new Thickness(1) };
+        _smartContextualActionButton = new Button { Height = 56, Margin = new Thickness(1), BackgroundColor = Color.OrangeRed, ForegroundColor = Color.White };
         _smartContextualActionButton.Click += _ => ExecuteContextualSmartClose();
         topCards.AddChild(_smartAccountDashboard, 0, 0);
         topCards.AddChild(_smartSymbolDashboard, 0, 1);
@@ -69,13 +69,13 @@ public sealed partial class PropRiskManagerPlugin
         root.AddChild(_smartPerformanceDashboard);
         root.AddChild(_smartAlertLevelsDashboard);
 
-        _smartMonitorPositionsButton = new Button { Height = 34, Margin = new Thickness(1), Text = "MONITOR POSITIONS" };
+        _smartMonitorPositionsButton = new Button { Height = 34, Margin = new Thickness(1), Text = "MONITOR POSITIONS", BackgroundColor = Color.SeaGreen, ForegroundColor = Color.White };
         _smartMonitorPositionsButton.Click += _ => MonitorActiveSymbolPositions();
         root.AddChild(_smartMonitorPositionsButton);
 
         var alertCommandRow = new Grid(1, 2);
         _smartShowAlertDetailsButton = new Button { Height = 32, Margin = new Thickness(1), Text = "SHOW ALERT DETAILS" };
-        _smartRemoveAlertsButton = new Button { Height = 32, Margin = new Thickness(1), Text = "REMOVE ALERTS" };
+        _smartRemoveAlertsButton = new Button { Height = 32, Margin = new Thickness(1), Text = "REMOVE ALERTS", BackgroundColor = Color.OrangeRed, ForegroundColor = Color.White };
         _smartShowAlertDetailsButton.Click += _ => ToggleSmartAlertDetails();
         _smartRemoveAlertsButton.Click += _ => RemoveActiveSymbolAlerts();
         alertCommandRow.AddChild(_smartShowAlertDetailsButton, 0, 0);
@@ -105,7 +105,7 @@ public sealed partial class PropRiskManagerPlugin
         var panel = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(2, 5, 2, 5) };
         panel.AddChild(new TextBlock
         {
-            Text = "MANAGEMENT PARAMETERS",
+            Text = "MANAGEMENT PARAMEETERS",
             FontWeight = FontWeight.Bold,
             Margin = new Thickness(0, 0, 0, 4)
         });
@@ -286,17 +286,21 @@ public sealed partial class PropRiskManagerPlugin
             return;
         }
 
-        var lines = states.Select(state =>
-        {
-            var definitions = state.AlertDefinitions.Count == 0
-                ? "no armed definitions"
-                : string.Join(
-                    " | ",
-                    state.AlertDefinitions.Select(definition =>
-                        $"{SmartAlertLabel(definition.AlertType)} {definition.TriggerPrice:F5} [{definition.State}]"));
-            return $"Pos {state.PositionId}: {definitions}";
-        });
-        _smartAlertLevelsDashboard.Text = $"ACTIVE-SYMBOL ALERT LEVELS {activeSymbol}\n" + string.Join("\n", lines);
+        var partialProfit = BuildAlertLevelLine(states, SmartAlertType.PartialProfit, "PARTIAL PROFIT");
+        var breakEven = BuildAlertLevelLine(states, SmartAlertType.BreakEven, "BREAK EVEN");
+        var stopLoss = BuildAlertLevelLine(states, SmartAlertType.StopLoss, "STOP LOSS");
+        _smartAlertLevelsDashboard.Text =
+            $"POSITION ALERT LEVELS  {activeSymbol}\n{partialProfit}\n{breakEven}\n{stopLoss}";
+    }
+
+    private static string BuildAlertLevelLine(IEnumerable<SmartPositionState> states, SmartAlertType alertType, string label)
+    {
+        var levels = states
+            .SelectMany(state => state.AlertDefinitions
+                .Where(definition => definition.AlertType == alertType)
+                .Select(definition => $"P{state.PositionId} {definition.TriggerPrice:F5} [{definition.State}]"))
+            .ToArray();
+        return levels.Length == 0 ? $"{label}: none" : $"{label}: {string.Join(" | ", levels)}";
     }
 
     private void RefreshSmartAlertFeed(string activeSymbol)
