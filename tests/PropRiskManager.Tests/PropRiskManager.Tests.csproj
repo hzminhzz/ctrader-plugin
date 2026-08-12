@@ -5,17 +5,16 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.0" />
     <PackageReference Include="MSTest.TestFramework" Version="3.10.4" />
     <PackageReference Include="MSTest.TestAdapter" Version="3.10.4" />
   </ItemGroup>
-
   <ItemGroup>
     <Compile Include="../../src/PropRiskManager/Domain/SmartPositionModels.cs" Link="Source/SmartPositionModels.cs" />
     <Compile Include="../../src/PropRiskManager/Domain/SmartPositionEngine.cs" Link="Source/SmartPositionEngine.cs" />
     <Compile Include="../../src/PropRiskManager/Domain/SmartAlertHistoryRepository.cs" Link="Source/SmartAlertHistoryRepository.cs" />
+    <Compile Include="../../src/PropRiskManager/Domain/SmartDashboard.cs" Link="Source/SmartDashboard.cs" />
     <Compile Include="../../src/PropRiskManager/State/PropFirmSettings.cs" Link="Source/PropFirmSettings.cs" />
     <Compile Include="../../src/PropRiskManager/State/PositionAutomationState.cs" Link="Source/PositionAutomationState.cs" />
     <Compile Include="../../src/PropRiskManager/State/AccountRuntimeState.cs" Link="Source/AccountRuntimeState.cs" />
