@@ -16,13 +16,17 @@ public static class PreTradeRiskGate
         Symbol symbol,
         TradePlan plan,
         double maxSpreadPips,
-        double maxRiskPercent)
+        double maxRiskPercent,
+        double maxLotsPerTrade = 0)
     {
         if (plan.VolumeInUnits < symbol.VolumeInUnitsMin)
             return RiskGateResult.Block("Calculated volume is below the broker minimum.");
 
         if (plan.VolumeInUnits > symbol.VolumeInUnitsMax)
             return RiskGateResult.Block("Calculated volume exceeds the broker maximum.");
+
+        if (maxLotsPerTrade > 0 && plan.QuantityLots > maxLotsPerTrade)
+            return RiskGateResult.Block($"Volume {plan.QuantityLots:F2} lots exceeds the prop limit {maxLotsPerTrade:F2} lots.");
 
         if (maxRiskPercent > 0 && plan.RiskPercent > maxRiskPercent)
             return RiskGateResult.Block($"Risk {plan.RiskPercent:F2}% exceeds the configured maximum {maxRiskPercent:F2}%.");
