@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace PropRiskManager.State;
 
@@ -12,4 +13,5 @@ public sealed class AccountRuntimeState
     public double BalancePeak { get; set; }
     public bool TradingBlocked { get; set; }
     public string BlockReason { get; set; } = string.Empty;
+    public Dictionary<int, PositionAutomationState> PositionAutomation { get; set; } = new();
 }
