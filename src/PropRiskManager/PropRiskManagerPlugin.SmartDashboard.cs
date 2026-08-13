@@ -13,6 +13,8 @@ public sealed partial class PropRiskManagerPlugin
     private AspBlock _smartDashboardBlock = null!;
     private TextBlock _smartAccountDashboard = null!;
     private TextBlock _smartSymbolDashboard = null!;
+    private TextBlock _smartLastUpdateDashboard = null!;
+    private TextBlock _smartAlertCountDashboard = null!;
     private TextBlock _smartPerformanceDashboard = null!;
     private TextBlock _smartAlertLevelsDashboard = null!;
     private TextBlock _smartAlertFeed = null!;
@@ -46,38 +48,43 @@ public sealed partial class PropRiskManagerPlugin
         _smartDashboardBlock = Asp.SymbolTab.AddBlock("Smart Position Manager");
         ConfigureAspBlock(_smartDashboardBlock, 350);
 
-        var root = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(8) };
-        root.AddChild(new TextBlock
-        {
-            Text = "SMART POSITION MANAGER",
-            FontSize = 15,
-            FontWeight = FontWeight.Bold,
-            Margin = new Thickness(0, 0, 0, 5)
-        });
+        var root = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(6) };
 
-        _smartAccountDashboard = new TextBlock { Margin = new Thickness(0, 2, 0, 3) };
-        _smartSymbolDashboard = new TextBlock { Margin = new Thickness(0, 2, 0, 3) };
-        _smartPerformanceDashboard = new TextBlock { Margin = new Thickness(0, 2, 0, 3) };
-        _smartAlertLevelsDashboard = new TextBlock { Margin = new Thickness(0, 2, 0, 5) };
-        root.AddChild(_smartAccountDashboard);
-        root.AddChild(_smartSymbolDashboard);
+        var topCards = new Grid(1, 5) { Margin = new Thickness(0, 0, 0, 4) };
+        _smartAccountDashboard = SmartDashboardCard();
+        _smartSymbolDashboard = SmartDashboardCard();
+        _smartLastUpdateDashboard = SmartDashboardCard();
+        _smartAlertCountDashboard = SmartDashboardCard();
+        _smartContextualActionButton = new Button { Height = 56, Margin = new Thickness(1), BackgroundColor = Color.OrangeRed, ForegroundColor = Color.White };
+        _smartContextualActionButton.Click += _ => ExecuteContextualSmartClose();
+        topCards.AddChild(_smartAccountDashboard, 0, 0);
+        topCards.AddChild(_smartSymbolDashboard, 0, 1);
+        topCards.AddChild(_smartLastUpdateDashboard, 0, 2);
+        topCards.AddChild(_smartAlertCountDashboard, 0, 3);
+        topCards.AddChild(_smartContextualActionButton, 0, 4);
+        root.AddChild(topCards);
+
+        _smartPerformanceDashboard = new TextBlock { Margin = new Thickness(2, 3, 2, 6) };
+        _smartAlertLevelsDashboard = new TextBlock { Margin = new Thickness(2, 2, 2, 6) };
         root.AddChild(_smartPerformanceDashboard);
         root.AddChild(_smartAlertLevelsDashboard);
 
-        var commandRow = new Grid(2, 2);
-        _smartMonitorPositionsButton = new Button { Height = 34, Margin = new Thickness(2), Text = "MONITOR POSITIONS" };
-        _smartShowAlertDetailsButton = new Button { Height = 34, Margin = new Thickness(2), Text = "SHOW ALERT DETAILS" };
-        _smartRemoveAlertsButton = new Button { Height = 34, Margin = new Thickness(2), Text = "REMOVE ALERTS" };
-        _smartManagementButton = new Button { Height = 34, Margin = new Thickness(2), Text = "MANAGEMENT PARAMETERS" };
+        _smartMonitorPositionsButton = new Button { Height = 34, Margin = new Thickness(1), Text = "MONITOR POSITIONS", BackgroundColor = Color.SeaGreen, ForegroundColor = Color.White };
         _smartMonitorPositionsButton.Click += _ => MonitorActiveSymbolPositions();
+        root.AddChild(_smartMonitorPositionsButton);
+
+        var alertCommandRow = new Grid(1, 2);
+        _smartShowAlertDetailsButton = new Button { Height = 32, Margin = new Thickness(1), Text = "SHOW ALERT DETAILS" };
+        _smartRemoveAlertsButton = new Button { Height = 32, Margin = new Thickness(1), Text = "REMOVE ALERTS", BackgroundColor = Color.OrangeRed, ForegroundColor = Color.White };
         _smartShowAlertDetailsButton.Click += _ => ToggleSmartAlertDetails();
         _smartRemoveAlertsButton.Click += _ => RemoveActiveSymbolAlerts();
+        alertCommandRow.AddChild(_smartShowAlertDetailsButton, 0, 0);
+        alertCommandRow.AddChild(_smartRemoveAlertsButton, 0, 1);
+        root.AddChild(alertCommandRow);
+
+        _smartManagementButton = new Button { Height = 28, Margin = new Thickness(1, 2, 1, 2), Text = "MANAGEMENT PARAMETERS" };
         _smartManagementButton.Click += _ => ToggleSmartManagementPanel();
-        commandRow.AddChild(_smartMonitorPositionsButton, 0, 0);
-        commandRow.AddChild(_smartShowAlertDetailsButton, 0, 1);
-        commandRow.AddChild(_smartRemoveAlertsButton, 1, 0);
-        commandRow.AddChild(_smartManagementButton, 1, 1);
-        root.AddChild(commandRow);
+        root.AddChild(_smartManagementButton);
 
         _smartAlertFeed = new TextBlock { Margin = new Thickness(2, 5, 2, 5), IsVisible = false };
         root.AddChild(_smartAlertFeed);
@@ -86,11 +93,7 @@ public sealed partial class PropRiskManagerPlugin
         _smartManagementPanel.IsVisible = false;
         root.AddChild(_smartManagementPanel);
 
-        _smartContextualActionButton = new Button { Height = 45, Margin = new Thickness(2) };
-        _smartContextualActionButton.Click += _ => ExecuteContextualSmartClose();
-        root.AddChild(_smartContextualActionButton);
-
-        _smartDashboardStatus = new TextBlock { Margin = new Thickness(0, 4, 0, 0) };
+        _smartDashboardStatus = new TextBlock { Margin = new Thickness(2, 4, 2, 0) };
         root.AddChild(_smartDashboardStatus);
         _smartDashboardBlock.Child = root;
 
@@ -164,6 +167,17 @@ public sealed partial class PropRiskManagerPlugin
         return panel;
     }
 
+    private static TextBlock SmartDashboardCard()
+    {
+        return new TextBlock
+        {
+            FontWeight = FontWeight.Bold,
+            Margin = new Thickness(3, 6, 3, 4),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+    }
+
     private static Grid SmartFieldRow(string label, ControlBase control)
     {
         var row = new Grid(1, 2) { Margin = new Thickness(0, 1, 0, 1) };
@@ -191,12 +205,10 @@ public sealed partial class PropRiskManagerPlugin
             positions,
             _runtimeState.SmartPositions.Values);
 
-        _smartAccountDashboard.Text =
-            $"ACCOUNT  Pos {snapshot.Account.OpenPositions} | Equity {snapshot.Account.Equity:F2} | Alerts {snapshot.Account.ArmedSmartAlerts}\n" +
-            $"Last update {snapshot.Account.LastUpdateUtc:HH:mm:ss} UTC";
-        _smartSymbolDashboard.Text = string.IsNullOrEmpty(activeSymbol)
-            ? "ACTIVE SYMBOL  unavailable"
-            : $"ACTIVE SYMBOL {activeSymbol}  Pos {snapshot.ActiveSymbol.OpenPositions} | Net P&L {snapshot.ActiveSymbol.NetProfit:F2}";
+        _smartAccountDashboard.Text = $"{snapshot.Account.OpenPositions}\nOPEN POSITIONS";
+        _smartSymbolDashboard.Text = $"{snapshot.Account.Equity:F2}\nACC. EQUITY";
+        _smartLastUpdateDashboard.Text = $"{snapshot.Account.LastUpdateUtc:HH:mm:ss}\nLAST UPDATE";
+        _smartAlertCountDashboard.Text = $"{snapshot.Account.ArmedSmartAlerts}\nSMART ALERT";
 
         UpdateSmartPerformanceSeries(activeSymbol);
         RefreshSmartAlertLevels(activeSymbol);
@@ -215,7 +227,9 @@ public sealed partial class PropRiskManagerPlugin
         var scopeText = card.Scope == SmartCloseScope.ActiveSymbol
             ? (string.IsNullOrEmpty(activeSymbol) ? "SYMBOL" : activeSymbol)
             : "ACCOUNT";
-        _smartContextualActionButton.Text = $"{scopeText} P&L {card.NetProfit:F2}\n{card.ActionText}";
+        _smartContextualActionButton.Text = card.Scope == SmartCloseScope.ActiveSymbol
+            ? $"{card.NetProfit:+0.00;-0.00;0.00}\n{scopeText} P&L\n{card.ActionText}"
+            : $"{card.PositionCount} pos\nCLOSE ALL\n{card.NetProfit:+0.00;-0.00;0.00}";
         _smartContextualActionButton.IsEnabled = card.CanClose;
     }
 
@@ -241,13 +255,22 @@ public sealed partial class PropRiskManagerPlugin
         }
 
         var latest = _smartPerformanceSeries.Samples[^1];
-        var compact = string.Join(
-            "  ",
-            _smartPerformanceSeries.Samples
-                .Skip(Math.Max(0, _smartPerformanceSeries.Samples.Count - 8))
-                .Select(sample => sample.BasisPoints.ToString("+0.0;-0.0;0.0")));
+        var sparkline = BuildSmartSparkline(_smartPerformanceSeries.Samples.Select(sample => sample.BasisPoints));
         _smartPerformanceDashboard.Text =
-            $"ACTIVE-SYMBOL PERF {activeSymbol}  {latest.BasisPoints:+0.0;-0.0;0.0} bps  [{compact}]";
+            $"{activeSymbol} PERFORMANCE  {latest.BasisPoints:+0.0;-0.0;0.0} bps\n{sparkline}";
+    }
+
+    private static string BuildSmartSparkline(IEnumerable<double> values)
+    {
+        var samples = values.Skip(Math.Max(0, values.Count() - 24)).ToArray();
+        if (samples.Length == 0)
+            return string.Empty;
+        var min = samples.Min();
+        var max = samples.Max();
+        const string levels = "▁▂▃▄▅▆▇█";
+        if (Math.Abs(max - min) < 1e-12)
+            return new string(levels[3], samples.Length);
+        return new string(samples.Select(value => levels[Math.Clamp((int)Math.Round((value - min) / (max - min) * 7), 0, 7)]).ToArray());
     }
 
     private void RefreshSmartAlertLevels(string activeSymbol)
@@ -263,17 +286,21 @@ public sealed partial class PropRiskManagerPlugin
             return;
         }
 
-        var lines = states.Select(state =>
-        {
-            var definitions = state.AlertDefinitions.Count == 0
-                ? "no armed definitions"
-                : string.Join(
-                    " | ",
-                    state.AlertDefinitions.Select(definition =>
-                        $"{SmartAlertLabel(definition.AlertType)} {definition.TriggerPrice:F5} [{definition.State}]"));
-            return $"Pos {state.PositionId}: {definitions}";
-        });
-        _smartAlertLevelsDashboard.Text = $"ACTIVE-SYMBOL ALERT LEVELS {activeSymbol}\n" + string.Join("\n", lines);
+        var partialProfit = BuildAlertLevelLine(states, SmartAlertType.PartialProfit, "PARTIAL PROFIT");
+        var breakEven = BuildAlertLevelLine(states, SmartAlertType.BreakEven, "BREAK EVEN");
+        var stopLoss = BuildAlertLevelLine(states, SmartAlertType.StopLoss, "STOP LOSS");
+        _smartAlertLevelsDashboard.Text =
+            $"POSITION ALERT LEVELS  {activeSymbol}\n{partialProfit}\n{breakEven}\n{stopLoss}";
+    }
+
+    private static string BuildAlertLevelLine(IEnumerable<SmartPositionState> states, SmartAlertType alertType, string label)
+    {
+        var levels = states
+            .SelectMany(state => state.AlertDefinitions
+                .Where(definition => definition.AlertType == alertType)
+                .Select(definition => $"P{state.PositionId} {definition.TriggerPrice:F5} [{definition.State}]"))
+            .ToArray();
+        return levels.Length == 0 ? $"{label}: none" : $"{label}: {string.Join(" | ", levels)}";
     }
 
     private void RefreshSmartAlertFeed(string activeSymbol)

@@ -22,7 +22,6 @@ public sealed partial class PropRiskManagerPlugin
     private TextBox _dailyDdPercent = null!;
     private CheckBox _dailyDdTrailing = null!;
     private TextBox _minimumDays = null!;
-    private TextBox _maxLots = null!;
     private CheckBox _autoCloseDrawdown = null!;
     private TextBox _resetTimeZoneId = null!;
     private TextBox _resetUtcOffset = null!;
@@ -83,13 +82,10 @@ public sealed partial class PropRiskManagerPlugin
         dailyDdRow.AddChild(_dailyDdTrailing, 0, 2);
         root.AddChild(dailyDdRow);
 
-        var ruleRow = new Grid(1, 4) { Margin = new Thickness(0, 2, 0, 2) };
+        var ruleRow = new Grid(1, 2) { Margin = new Thickness(0, 2, 0, 2) };
         ruleRow.AddChild(new TextBlock { Text = "Min Days", VerticalAlignment = VerticalAlignment.Center }, 0, 0);
         _minimumDays = new TextBox { Text = "5", Height = 24 };
         ruleRow.AddChild(_minimumDays, 0, 1);
-        ruleRow.AddChild(new TextBlock { Text = "Max Lot", VerticalAlignment = VerticalAlignment.Center }, 0, 2);
-        _maxLots = new TextBox { Text = "100", Height = 24 };
-        ruleRow.AddChild(_maxLots, 0, 3);
         root.AddChild(ruleRow);
 
         _resetTimeZoneId = AddInput(root, "Reset TZ ID (optional)", "");
@@ -219,7 +215,6 @@ public sealed partial class PropRiskManagerPlugin
         settings.DailyDrawdownPercent = ParseNonNegative(_dailyDdPercent.Text, settings.DailyDrawdownPercent);
         settings.DailyDrawdownTrailing = _dailyDdTrailing.IsChecked == true;
         settings.MinimumTradingDays = Math.Max(0, (int)ParseNonNegative(_minimumDays.Text, settings.MinimumTradingDays));
-        settings.MaxLotsPerTrade = ParseNonNegative(_maxLots.Text, settings.MaxLotsPerTrade);
         settings.AutoCloseOnDrawdownBreach = _autoCloseDrawdown.IsChecked == true;
         settings.ResetTimeZoneId = (_resetTimeZoneId.Text ?? string.Empty).Trim();
         settings.ResetUtcOffsetHours = Math.Max(-14, Math.Min(14, ParseSigned(_resetUtcOffset.Text, settings.ResetUtcOffsetHours)));
@@ -241,7 +236,6 @@ public sealed partial class PropRiskManagerPlugin
         _dailyDdPercent.Text = settings.DailyDrawdownPercent.ToString(CultureInfo.InvariantCulture);
         _dailyDdTrailing.IsChecked = settings.DailyDrawdownTrailing;
         _minimumDays.Text = settings.MinimumTradingDays.ToString(CultureInfo.InvariantCulture);
-        _maxLots.Text = settings.MaxLotsPerTrade.ToString(CultureInfo.InvariantCulture);
         _autoCloseDrawdown.IsChecked = settings.AutoCloseOnDrawdownBreach;
         _resetTimeZoneId.Text = settings.ResetTimeZoneId ?? string.Empty;
         _resetUtcOffset.Text = settings.ResetUtcOffsetHours.ToString(CultureInfo.InvariantCulture);

@@ -1,177 +1,93 @@
 # Prop Risk Manager for cTrader
 
-Original native cTrader plugin implementing the supplied Risk Manager Pro-style workflow with independently written logic and public cTrader APIs.
+Native cTrader Desktop plugin for position management, prop-firm protection, partial exits, and the Smart Position Manager (SPM). Order entry and trade statistics use cTrader's built-in tools.
 
-> Status: **development / demo validation only**. The project compiles in CI, the pure prop-risk/state test suite passes, and CI publishes an installable `PropRiskManager.algo` artifact. It has not yet completed hands-on cTrader Desktop smoke testing on the target broker/prop-firm account.
+The plugin uses independently written C# logic and supported public cTrader APIs. It does not copy or decompile protected third-party code or assets.
 
-## Implemented
+## Status
 
-### Trade Execution
+- Builds as a cTrader `.algo` package in GitHub Actions.
+- Pure risk/state test suite passes.
+- Smart Position Manager dashboard is implemented inside the `PropRiskManager` plugin.
+- DEMO validation completed for startup, dashboard rendering, restart recovery, external SL/TP reconciliation, plugin health, and cleanup.
+- Never treat local desktop protection as a broker/server guarantee. Validate the exact prop-firm rules and broker behavior before funded use.
 
-- BUY / SELL one-click execution
-- Market / Limit / Stop auto-detection from entry price
-- Five sizing modes: `% Equity`, `% Balance`, `% Free Margin`, `Fixed $`, `Fixed Lots`
-- Commission-aware position sizing
-- Live spread, configured commission, pip value, lot size and R:R
-- Draggable Entry / SL / TP chart lines
-- Shift+E sets entry to the current chart cursor price
-- Max risk, max spread and max-lot pre-trade gates
+## Install
 
-### Advanced Protection
+### Use a CI artifact
 
-- Custom trailing stop
-- cTrader server-side trailing stop option
-- Automatic break-even trigger and offset
-- Account-wide automation independent of active chart
-
-### Position Management
-
-- Current-symbol or all-symbol scope
-- Close All / Close Profit / Close Loss with live P&L
-- Cancel All / Buy / Sell pending orders
-- Partial close by percentage
-- Move selected scope to break-even
-
-### Partial TP / SL
-
-- Five Partial Take Profit levels
-- Five Partial Stop Loss levels
-- Triggers by pips or percentage of configured TP/SL distance
-- Close by `% Original`, `% Remaining`, or `Fixed Lots`
-- Per-position persisted trigger state
-- Broker volume normalization
-- Oversized/untradeable remainder handling
-- No server request is sent when rounding would produce no volume change
-
-### Prop Firm Guardian
-
-- Initial-balance reference
-- Profit target
-- Daily profit cap / consistency display
-- Daily drawdown
-- Total drawdown
-- Static or trailing DD references
-- Configurable UTC reset offset and reset hour
-- Account/daily equity high-water tracking
-- Max-lot pre-trade restriction
-- New-trade lock on target, daily cap or DD breach
-- Auto-close all positions and cancel pending orders on hard DD breach
-- Emergency liquidation retry throttling
-- Worst-case pre-trade loss-room guard using:
-  - existing open-position risk from current price to SL
-  - existing pending-order entry-to-SL risk
-  - proposed trade risk
-  - configurable safety buffer
-- Optional block when existing exposure has no stop loss
-- Per-account persisted settings and runtime state
-
-### Trading Statistics
-
-- Today / 7d / 30d / 90d / All
-- Current symbol / All symbols
-- Total trades, W/L/BE, win rate, net profit, profit factor, expectancy
-- Avg win/loss, approximate avg R:R, best/worst trade
-- Max drawdown and recovery factor
-- Streaks and long/short distribution
-- Average duration and best/worst day
-- Partial closes aggregated by PositionId so they do not inflate trade count
-- Break-even positions excluded from win/loss classification
-
-## CI status
-
-The draft-PR pipeline validates:
-
-1. cTrader plugin restore/build
-2. pure guardian/state MSTest suite
-3. package rename from the compiler-emitted `src.algo` to `PropRiskManager.algo`
-4. GitHub Actions artifact publication as `PropRiskManager-algo`
-
-Build run **119** is the first fully green package pipeline on the feature branch.
-
-## Install a CI build
-
-1. Open the latest successful GitHub Actions `build` run for the draft PR.
+1. Open the latest successful GitHub Actions `build` run.
 2. Download the `PropRiskManager-algo` artifact.
 3. Extract `PropRiskManager.algo`.
-4. Double-click the `.algo` file and open it with cTrader Windows or Mac.
-5. Enable the plugin and locate its blocks in the Active Symbol Panel.
+4. Open the `.algo` file with cTrader Desktop.
+5. Enable `PropRiskManager` in cTrader's plugin settings.
+6. Open a chart, select the **Symbol** tab in the Active Symbol Panel, and scroll through the plugin blocks.
+7. Expand **Smart Position Manager** for SPM controls.
 
-## Mandatory demo smoke test
+SPM is not a separate plugin entry. It is a block rendered by `PropRiskManager` with the title **Smart Position Manager**.
 
-Do not start with a funded account. Use a demo account and validate in this order:
+### Build locally
 
-1. **Startup / persistence**
-   - Enable plugin.
-   - Set distinctive risk, SL/TP and guardian values.
-   - Restart cTrader/plugin and confirm values restore for the same account.
-   - Switch accounts and confirm settings are isolated by account.
+```bash
+dotnet restore src/PropRiskManager/Project/PropRiskManager.csproj
+dotnet build src/PropRiskManager/Project/PropRiskManager.csproj -c Release
+dotnet test tests/PropRiskManager.Tests/PropRiskManager.Tests.csproj -c Release --no-restore
+```
 
-2. **Sizing**
-   - Test all five sizing modes on FX, gold/index/CFD symbols used by the target prop account.
-   - Independently verify calculated lot size against stop distance, pip value and commission.
-   - Confirm volume obeys broker min/max/step.
+The cTrader build workflow packages the compiler output as `PropRiskManager.algo`.
 
-3. **Execution**
-   - Market BUY/SELL.
-   - Buy/Sell Limit.
-   - Buy/Sell Stop.
-   - Confirm SL/TP arrive on the server at the intended distances.
-   - Confirm max spread/risk/lot gates reject invalid orders.
+## Order entry
 
-4. **Chart interaction**
-   - Drag Entry / SL / TP and confirm preview recalculates.
-   - Move cursor and press Shift+E; confirm entry price/line moves correctly.
-   - Switch charts and confirm the panel targets the active symbol.
+Use cTrader's built-in New order panel, chart trading controls, or Trade Watch to open and modify positions. PropRiskManager no longer renders a custom Trade Execution or Trading Statistics block.
 
-5. **Position management**
-   - Current vs All scope.
-   - Close All / Profit / Loss.
-   - Cancel all/buy/sell pending orders.
-   - Partial close near minimum broker volume.
-   - Move to break-even.
+After opening a position, use PropRiskManager for protection, guardian rules, position management, partial exits, and SPM enrollment.
 
-6. **Advanced protection**
-   - Custom trailing only improves the stop.
-   - Server trailing activates only with a valid SL.
-   - Break-even triggers once threshold is reached.
-   - Switch charts while a trade is open and confirm protection continues.
+## First-use safety checklist
 
-7. **Partial TP/SL**
-   - Test all trigger and close-sizing modes.
-   - Confirm each level fires once.
-   - Restart plugin between levels and confirm fired state survives.
-   - Confirm tiny/oversized final reductions do not create repeated no-op requests.
+Use a demo account first. Before opening a trade:
 
-8. **Prop guardian**
-   - Use deliberately small limits on demo.
-   - Validate reset boundary using configured UTC offset/hour.
-   - Validate static and trailing DD separately.
-   - Confirm hard breach closes positions and cancels orders.
-   - Confirm target/daily-cap locks new trades without emergency liquidation.
-   - Confirm worst-case pre-trade guard includes other-symbol positions and pending orders.
+1. Confirm the cTrader account header says **Demo**.
+2. Confirm the intended symbol, volume unit, stop loss, and take profit.
+3. Confirm the plugin status is running and no runtime error is shown.
+4. Set conservative drawdown limits, reset rules, and hard-breach cleanup settings.
+5. Open the smallest broker-valid test position with cTrader's built-in order UI.
+6. Verify the broker's actual position, SL, TP, and volume in Trade Watch.
+7. Test restart recovery and external modifications before increasing size.
+8. Close the test position and confirm zero positions and pending orders.
 
-9. **Statistics**
-   - Compare a small hand-calculated history sample with panel output.
-   - Include partial closes and break-even trades.
+Do not use the plugin on a funded account until the target broker's symbol metadata, commission model, leverage, volume rules, prop-firm formulas, reset timezone, and liquidation policy have been independently verified.
 
-## Known limitations before funded use
+## Main capabilities
 
-- Prop-firm rule definitions vary. The generic guardian must be mapped to the exact current rules of the chosen firm/account type before relying on it.
-- Daily-loss formulas can use different references (balance, equity, higher-of, fixed initial balance, realized/floating components). The current implementation primarily uses equity-based day-start/high-water references.
-- Reset timezone uses a fixed UTC offset and hour. It does not automatically resolve DST rule changes for a named timezone.
-- Commission uses the configured per-lot estimate for sizing/exposure. Exact broker-specific commission treatment must be verified on the target account.
-- Automatic liquidation is a local desktop safety layer. Gaps, disconnections, broker rejection or process shutdown can prevent execution at the exact threshold.
-- UI is functional but not yet the final single-window/collapsible visual match to the reference screenshots.
-- Detachable floating-window parity and final semantic color/layout polish remain post-smoke-test UI work.
+- Advanced protection: custom/server trailing and break-even.
+- Position management: symbol/all-symbol scope, close actions, pending-order cancellation, partial close, and move-to-break-even.
+- Partial Take Profit and Partial Stop Loss: five levels each, percentage/points modes, persisted stages, and broker volume normalization.
+- Prop Firm Guardian: profit target, daily cap, daily/total drawdown, high-water references, advisory rule status, and hard-breach cleanup.
+- Smart Position Manager: explicit enrollment, account/symbol cards, smart alerts, alert history, management phases, percentage/points parameters, first/multi partial profit, profiles, reconciliation, and restart persistence.
 
-## Development gates
+## Documentation
 
-The draft PR should remain unmerged until:
+Read the complete operator manual:
 
-- plugin build passes
-- pure risk/state unit tests pass
-- `.algo` artifact is produced
-- cTrader Desktop demo smoke test passes
-- exact prop-firm rule profile is reviewed and configured
+- [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md)
+- [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) for architecture and roadmap
 
-See `docs/IMPLEMENTATION_PLAN.md` for the detailed roadmap.
+## CI gates
+
+The build workflow validates:
+
+1. cTrader plugin restore/build;
+2. pure MSTest risk/state suites;
+3. `.algo` package generation and naming;
+4. GitHub Actions artifact publication.
+
+## Known limitations
+
+- Prop-firm rules differ. Guardian settings must be mapped to the exact account contract.
+- Daily-loss references and reset semantics differ between firms.
+- Built-in cTrader order entry is not intercepted by PropRiskManager. Guardian block status is advisory for new entries; the plugin can only act on broker positions/orders after they exist, including configured hard-breach cleanup.
+- UTC offset/hour configuration does not automatically model DST changes.
+- Commission and sizing decisions belong to cTrader's built-in order workflow and must be checked against the target broker.
+- Desktop automation cannot protect an account during process shutdown, disconnection, broker rejection, or machine failure.
+- Smart financial actions require explicit position enrollment; monitoring and financial actions are separate concepts.
+- Exact third-party SPM semantics not observable from public behavior are intentionally represented as documented PropRiskManager semantics, not claimed as proprietary parity.

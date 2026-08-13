@@ -19,7 +19,6 @@ public sealed class PropFirmSettings
     public bool DailyDrawdownTrailing { get; set; }
 
     public int MinimumTradingDays { get; set; } = 5;
-    public double MaxLotsPerTrade { get; set; } = 100;
 
     public bool PreTradeLossRoomGuardEnabled { get; set; } = true;
     public double SafetyBufferPercent { get; set; } = 0.5;
