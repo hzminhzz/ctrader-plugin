@@ -8,16 +8,16 @@ Prop Risk Manager is a native cTrader plugin. It adds blocks to cTrader's Active
 
 The main blocks are:
 
-- **Trade Execution** — order entry, sizing, preview, chart lines, and pre-trade gates.
 - **Advanced Protection** — break-even and trailing protection.
 - **Position Management** — close/cancel/partial-close actions.
 - **Partial Take Profit** — up to five TP-triggered reductions.
 - **Partial Stop Loss** — up to five SL-triggered reductions.
 - **Prop Firm Guardian** — account rule tracking and emergency protection.
-- **Trading Statistics** — history and performance analysis.
 - **Smart Position Manager** — explicit enrollment, smart alerts, management parameters, and dashboard scopes.
 
 SPM is part of `PropRiskManager`; do not look for a separate plugin named SPM.
+
+Order entry and trade statistics are intentionally not provided by this plugin. Use cTrader's built-in New order, chart trading, Trade Watch, and History tools for those tasks.
 
 ## 2. Install and locate the plugin
 
@@ -45,35 +45,18 @@ Expected state:
 
 If the plugin starts with a stale package, stop it, replace the `.algo` file, and start it again. Recheck the package timestamp/hash when testing a newly built artifact.
 
-## 3. Trade Execution
+## 3. Built-in cTrader order entry
 
-### Sizing modes
+Use cTrader's built-in order workflow:
 
-Trade Execution supports:
+1. Select the desired symbol and account.
+2. Open **New order**, chart trading, or Trade Watch.
+3. Choose market, limit, or stop order.
+4. Set volume using the broker's displayed minimum, maximum, and step.
+5. Set broker SL/TP and review spread, margin, and estimated costs.
+6. Submit the order and confirm the resulting position in Trade Watch.
 
-- `% Equity`;
-- `% Balance`;
-- `% Free Margin`;
-- `Fixed $`;
-- `Fixed Lots`.
-
-Risk sizing depends on entry-to-stop distance, symbol pip/lot metadata, commission estimate, and configured risk. Confirm the displayed volume is valid for the symbol's minimum, maximum, and step constraints.
-
-### Order workflow
-
-1. Select the chart symbol.
-2. Configure side, entry, stop, target, sizing mode, and risk.
-3. Review spread, pip value, lot size, commission, and R:R.
-4. Check the chart Entry/SL/TP lines.
-5. Submit the order only after the preview is correct.
-
-The plugin can classify an order as market, limit, or stop from the relationship between requested entry and current price. Invalid risk, spread, lot, or max-lot conditions are rejected by the pre-trade gates.
-
-### Chart controls
-
-- Entry, SL, and TP lines can be dragged on the active chart.
-- `Shift+E` sets entry to the chart cursor price.
-- Switching the active chart changes symbol-scoped UI context; account-wide protection continues independently.
+PropRiskManager consumes the resulting broker position. It does not provide a second order-entry path or duplicate cTrader's sizing UI.
 
 ## 4. Advanced Protection
 
@@ -140,25 +123,15 @@ Guardian tracks and displays:
 - static or trailing drawdown references;
 - UTC reset offset and reset hour;
 - account/equity high-water values;
-- max-lot restrictions;
 - new-trade locks;
 - hard-breach emergency cleanup.
-
-The worst-case pre-trade guard can account for:
-
-- existing open-position risk from current price to SL;
-- pending-order entry-to-SL risk;
-- proposed trade risk;
-- configured safety buffer;
-- optionally, existing exposure without a stop.
 
 ### Configure conservatively
 
 1. Set the exact initial-balance reference required by the firm.
 2. Set target, cap, daily DD, total DD, and reset values.
 3. Select static/trailing references according to the account contract.
-4. Decide whether positions/orders without SL should be blocked.
-5. Test each lock and breach on demo with small limits.
+4. Test each lock and breach on demo with small limits.
 
 Guardian is a local desktop safety layer. It cannot guarantee liquidation during disconnection, process shutdown, broker rejection, or machine failure.
 
@@ -249,18 +222,7 @@ SPM persists account runtime state, including original references, phase, alert 
 4. Confirm an already-triggered alert or partial does not replay.
 5. Confirm external broker changes reconcile.
 
-## 9. Trading Statistics
-
-Statistics can filter by:
-
-- Today, 7d, 30d, 90d, or All;
-- current symbol or all symbols.
-
-Displayed metrics include total trades, W/L/BE, win rate, net profit, profit factor, expectancy, average win/loss, approximate R:R, best/worst trade, max drawdown, recovery factor, streaks, long/short distribution, duration, and best/worst day.
-
-Partial closes are aggregated by PositionId so they do not inflate trade count. Break-even outcomes are excluded from win/loss classification.
-
-## 10. Persistence and account isolation
+## 9. Persistence and account isolation
 
 Settings and runtime state are persisted per account. When switching accounts:
 
@@ -271,13 +233,13 @@ Settings and runtime state are persisted per account. When switching accounts:
 
 Test persistence by setting distinctive values, restarting cTrader, and confirming values restore only for the same account.
 
-## 11. Controlled DEMO acceptance workflow
+## 10. Controlled DEMO acceptance workflow
 
 Use this order for integration testing:
 
 1. Confirm DEMO account and flat starting state.
 2. Confirm plugin running/not crashed.
-3. Open the smallest valid position with a label/comment identifying the test.
+3. Open the smallest valid position with cTrader's built-in order UI and a label/comment identifying the test when available.
 4. Verify broker position, volume, spread, SL, and TP.
 5. Enroll it in SPM.
 6. Verify armed alerts and dashboard scopes.
@@ -291,7 +253,7 @@ Use this order for integration testing:
 
 MCP can assist with account reads, market data, order placement, amendments, closing, plugin start/stop, layout, and chart operations. MCP does not expose every embedded cTrader control, so SPM enrollment and visual interaction require the cTrader UI.
 
-## 12. Troubleshooting
+## 11. Troubleshooting
 
 ### SPM is missing from the plugin list
 
@@ -326,11 +288,11 @@ Expected: only `PropRiskManager` appears. SPM is embedded in that plugin. Open t
 - Confirm the prior action is reconciled before retrying.
 - Review persisted fired-stage state.
 
-### Guardian blocks a trade
+### Guardian blocks or closes positions
 
-Review target, cap, daily/total DD, max-lot, spread, stop-loss, existing exposure, and safety buffer. The block is intentional until the violated condition is corrected or the demo profile is adjusted.
+Review target, cap, daily/total DD, and safety-buffer settings. Hard drawdown cleanup is a local account-protection action; built-in cTrader order entry remains responsible for order validation.
 
-## 13. Development and verification
+## 12. Development and verification
 
 Run:
 

@@ -5,30 +5,14 @@ Goal: build an original cTrader native plugin with feature parity to the supplie
 ## Phase 1 - Foundation and domain model
 
 - [x] Native .NET 6 cTrader Plugin project
-- [x] TradePlan domain model
-- [x] Five sizing modes: % Equity, % Balance, % Free Margin, Fixed Amount, Fixed Lots
-- [x] Commission-aware position sizing
-- [x] Shared pre-trade risk gate
 - [x] Per-account persisted settings/state
 - [x] Account-wide runtime service independent of active chart
 
-Acceptance: all later modules consume the same TradePlan and account state contracts.
+Acceptance: later modules consume account state and broker position contracts without duplicating cTrader order entry.
 
-## Phase 2 - Smart trade execution and chart interaction
+## Phase 2 - Built-in cTrader order entry
 
-- [x] Symbol Tab execution panel matching the supplied workflow
-- [x] Live symbol / spread / commission / pip-value display
-- [x] BUY / SELL one-click execution
-- [x] Optional manual entry price
-- [x] Auto-detect Market / Limit / Stop from direction + entry price
-- [x] SL and TP enable/disable controls
-- [x] Draggable Entry / SL / TP chart lines
-- [x] Live sizing and R:R preview
-- [x] Shift+E entry-price cursor hotkey
-- [x] Max-spread and max-risk pre-trade validation
-- [x] Prop-firm max-lot pre-trade validation
-
-Acceptance: a planned order produces the same sizing and order type regardless of whether values are changed in the panel or by dragging chart lines.
+Order entry is intentionally delegated to cTrader's built-in New order, chart trading, and Trade Watch controls. PropRiskManager consumes broker positions after entry and does not duplicate cTrader's execution or sizing workflow.
 
 ## Phase 3 - Advanced protection and position management
 
@@ -75,29 +59,16 @@ Acceptance: each level fires at most once per position and never attempts an inv
 - [x] Auto-close all and cancel pending at configured drawdown breach boundary
 - [x] Emergency liquidation retry throttling
 - [x] Persist day-start, peak, and automation state per account
-- [x] Max-lot pre-trade guard
 - [x] Pure guardian/state unit-test suite
 
 Acceptance: guardian formulas are unit-tested against explicit prop-firm rule examples before live use. Exact funded-account use still requires mapping the selected firm's current rule definitions to the configurable engine.
 
-## Phase 6 - Trading statistics and UI polish
+## Phase 6 - UI polish
 
-- [x] Today / 7d / 30d / 90d / All filters
-- [x] Symbol filter
-- [x] Total trades, W/L/BE, win rate, net profit, profit factor, expectancy
-- [x] Aggregate partial closes by PositionId to avoid inflated trade counts
-- [x] Exclude break-even positions from win/loss classification
-- [x] Avg win/loss, avg R:R, best/worst trade
-- [x] Max drawdown, recovery factor
-- [x] Streaks, long/short distribution
-- [x] Average duration, long/short duration, best/worst day
 - [x] Native cTrader controls inherit the active light/dark theme
 - [ ] Final semantic color/theme pass
 - [ ] Single-panel collapsible-section polish matching screenshots
 - [ ] Detachable floating window
-- [ ] Independent stats fixture tests
-
-Acceptance: stats are derived from cTrader history and match independently calculated test fixtures.
 
 ## CI / packaging
 
@@ -112,7 +83,7 @@ Build run 119 is the first fully green build/test/package pipeline.
 
 1. Compile after each phase before adding the next.
 2. Run pure risk/state unit tests in CI.
-3. Use demo accounts first for trading-operation and UI validation.
+3. Use demo accounts first for built-in cTrader trading and plugin UI validation.
 4. Keep prop-firm limits separate from normal trade-risk limits.
 5. Treat automatic close/block behavior as a local safety layer, not a broker/server guarantee.
 6. Never depend on the active chart for account-wide protection state.

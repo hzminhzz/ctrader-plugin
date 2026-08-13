@@ -1,6 +1,6 @@
 # Prop Risk Manager for cTrader
 
-Native cTrader Desktop plugin for trade execution, position management, prop-firm protection, trading statistics, partial exits, and the Smart Position Manager (SPM).
+Native cTrader Desktop plugin for position management, prop-firm protection, partial exits, and the Smart Position Manager (SPM). Order entry and trade statistics use cTrader's built-in tools.
 
 The plugin uses independently written C# logic and supported public cTrader APIs. It does not copy or decompile protected third-party code or assets.
 
@@ -36,6 +36,12 @@ dotnet test tests/PropRiskManager.Tests/PropRiskManager.Tests.csproj -c Release 
 
 The cTrader build workflow packages the compiler output as `PropRiskManager.algo`.
 
+## Order entry
+
+Use cTrader's built-in New order panel, chart trading controls, or Trade Watch to open and modify positions. PropRiskManager no longer renders a custom Trade Execution or Trading Statistics block.
+
+After opening a position, use PropRiskManager for protection, guardian rules, position management, partial exits, and SPM enrollment.
+
 ## First-use safety checklist
 
 Use a demo account first. Before opening a trade:
@@ -43,8 +49,8 @@ Use a demo account first. Before opening a trade:
 1. Confirm the cTrader account header says **Demo**.
 2. Confirm the intended symbol, volume unit, stop loss, and take profit.
 3. Confirm the plugin status is running and no runtime error is shown.
-4. Set conservative max-risk, max-spread, max-lot, drawdown, and safety-buffer values.
-5. Open the smallest broker-valid test position.
+4. Set conservative max-lot, drawdown, and safety-buffer values.
+5. Open the smallest broker-valid test position with cTrader's built-in order UI.
 6. Verify the broker's actual position, SL, TP, and volume in Trade Watch.
 7. Test restart recovery and external modifications before increasing size.
 8. Close the test position and confirm zero positions and pending orders.
@@ -53,12 +59,10 @@ Do not use the plugin on a funded account until the target broker's symbol metad
 
 ## Main capabilities
 
-- Trade execution: market, limit, and stop orders with risk-based sizing.
 - Advanced protection: custom/server trailing and break-even.
 - Position management: symbol/all-symbol scope, close actions, pending-order cancellation, partial close, and move-to-break-even.
 - Partial Take Profit and Partial Stop Loss: five levels each, percentage/points modes, persisted stages, and broker volume normalization.
 - Prop Firm Guardian: profit target, daily cap, daily/total drawdown, high-water references, trade locks, and hard-breach cleanup.
-- Trading Statistics: period/symbol filters, P&L, win rate, profit factor, expectancy, drawdown, streaks, duration, and direction distribution.
 - Smart Position Manager: explicit enrollment, account/symbol cards, smart alerts, alert history, management phases, percentage/points parameters, first/multi partial profit, profiles, reconciliation, and restart persistence.
 
 ## Documentation
@@ -82,7 +86,7 @@ The build workflow validates:
 - Prop-firm rules differ. Guardian settings must be mapped to the exact account contract.
 - Daily-loss references and reset semantics differ between firms.
 - UTC offset/hour configuration does not automatically model DST changes.
-- Commission estimates must be checked against the target broker.
+- Commission and sizing decisions belong to cTrader's built-in order workflow and must be checked against the target broker.
 - Desktop automation cannot protect an account during process shutdown, disconnection, broker rejection, or machine failure.
 - Smart financial actions require explicit position enrollment; monitoring and financial actions are separate concepts.
 - Exact third-party SPM semantics not observable from public behavior are intentionally represented as documented PropRiskManager semantics, not claimed as proprietary parity.
