@@ -8,16 +8,8 @@ namespace PropRiskManager;
 [Plugin(TimeZone = TimeZones.UTC, AccessRights = AccessRights.None)]
 public sealed partial class PropRiskManagerPlugin : Plugin
 {
-    private const string EntryLineName = "PRM_ENTRY";
-    private const string StopLineName = "PRM_STOP";
-    private const string TargetLineName = "PRM_TARGET";
-    private const string Label = "PropRiskManager";
-
     private Chart? _chart;
     private Symbol? _symbol;
-    private ChartHorizontalLine? _entryLine;
-    private ChartHorizontalLine? _stopLine;
-    private ChartHorizontalLine? _targetLine;
 
     private PluginSettings _settings = new();
     private AccountRuntimeState _runtimeState = new();
@@ -29,15 +21,12 @@ public sealed partial class PropRiskManagerPlugin : Plugin
 
     protected override void OnStart()
     {
-        BuildTradeExecutionPanel();
         BuildAdvancedProtectionPanel();
         BuildSmartDashboardPanel();
         BuildPositionManagementPanel();
         BuildPartialTakeProfitPanel();
         BuildPartialStopLossPanel();
         BuildPropFirmProtectionPanel();
-        BuildPropPreTradePanel();
-        BuildTradingStatsPanel();
 
         LoadAccountState();
         ApplySettingsToUi();
@@ -49,9 +38,7 @@ public sealed partial class PropRiskManagerPlugin : Plugin
         Positions.Closed += OnSmartPositionClosed;
 
         BindToActiveChart();
-        InitializeTradeHotkeys();
         RefreshPositionManagement();
-        RefreshTradingStats(true);
         Timer.Start(TimeSpan.FromMilliseconds(250));
     }
 
@@ -62,21 +49,16 @@ public sealed partial class PropRiskManagerPlugin : Plugin
         _runtimeFaultReason = $"Unhandled runtime exception #{_runtimeExceptionCount}: {exception.GetType().Name}: {exception.Message}";
         Print($"PropRiskManager {_runtimeFaultReason}\n{exception.StackTrace}");
 
-        if (_status != null)
-            _status.Text = "TRADING BLOCKED: " + _runtimeFaultReason + " Restart the plugin after resolving the error.";
     }
 
     protected override void OnError(Error error)
     {
         Print($"PropRiskManager trade operation error: {error}");
-        if (_status != null)
-            _status.Text = $"Trade operation error: {error}";
     }
 
     protected override void OnStop()
     {
         SaveAccountState();
-        DisposeTradeHotkeys();
         ChartManager.ActiveFrameChanged -= OnActiveFrameChanged;
         Account.Switched -= OnAccountSwitched;
         Positions.Opened -= OnSmartPositionOpened;
@@ -90,20 +72,15 @@ public sealed partial class PropRiskManagerPlugin : Plugin
         if (_chart == null)
             BindToActiveChart();
 
-        RefreshMarketInfo();
-        UpdateLineVisibility();
         CapturePropFirmSettingsFromUi();
-        CapturePropPreTradeSettingsFromUi();
         UpdateRuntimeState();
         RunPropFirmGuardian();
-        RecalculatePreview();
         RunAdvancedProtection();
         RunPartialExitAutomation();
         RunSmartPositionMonitoring();
         RunSmartPositionSafetyReconciliation();
         RefreshSmartDashboard();
         RefreshPositionManagement();
-        RefreshTradingStats();
 
         if (Server.Time >= _lastPersistTime.AddSeconds(2))
         {

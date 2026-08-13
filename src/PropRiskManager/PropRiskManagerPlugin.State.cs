@@ -16,7 +16,7 @@ public sealed partial class PropRiskManagerPlugin
     }
     private void SaveAccountState(){if(_stateAccountNumber==0)return;CaptureSettingsFromUi();LocalStorage.SetObject(SettingsKey(_stateAccountNumber),_settings,LocalStorageScope.Type);LocalStorage.SetObject(RuntimeKey(_stateAccountNumber),_runtimeState,LocalStorageScope.Type);LocalStorage.Flush(LocalStorageScope.Type);}
     private void UpdateRuntimeState()=>AccountStateManager.Update(_runtimeState,GetGuardianTradingDay(Server.TimeInUtc),Account.Balance,Account.Equity);
-    private void CaptureSettingsFromUi(){CaptureTradeSettingsFromUi();CaptureManagementSettingsFromUi();CapturePartialExitSettingsFromUi();CapturePropFirmSettingsFromUi();CapturePropPreTradeSettingsFromUi();}
-    private void ApplySettingsToUi(){ApplyTradeSettingsToUi();ApplyManagementSettingsToUi();ApplyPartialExitSettingsToUi();ApplyPropFirmSettingsToUi();ApplyPropPreTradeSettingsToUi();}
+    private void CaptureSettingsFromUi(){CaptureManagementSettingsFromUi();CapturePartialExitSettingsFromUi();CapturePropFirmSettingsFromUi();}
+    private void ApplySettingsToUi(){ApplyManagementSettingsToUi();ApplyPartialExitSettingsToUi();ApplyPropFirmSettingsToUi();}
     private static string SettingsKey(int accountNumber)=>$"PRM Settings {accountNumber}";private static string RuntimeKey(int accountNumber)=>$"PRM Runtime {accountNumber}";
 }
