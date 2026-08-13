@@ -105,7 +105,7 @@ public sealed partial class PropRiskManagerPlugin
         var panel = new StackPanel { Orientation = Orientation.Vertical, Margin = new Thickness(2, 5, 2, 5) };
         panel.AddChild(new TextBlock
         {
-            Text = "MANAGEMENT PARAMEETERS",
+            Text = "MANAGEMENT PARAMETERS",
             FontWeight = FontWeight.Bold,
             Margin = new Thickness(0, 0, 0, 4)
         });

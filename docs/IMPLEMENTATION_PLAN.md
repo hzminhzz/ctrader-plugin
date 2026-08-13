@@ -52,16 +52,14 @@ Acceptance: each level fires at most once per position and never attempts an inv
 - [x] Account-wide equity peak tracking
 - [x] Real-time equity-based drawdown monitoring including floating account P&L
 - [ ] Firm-specific commission/swap/reference-balance formula modes
-- [x] Configurable safety buffer before the formal breach line
-- [x] Pre-trade worst-case block based on remaining daily/total loss room
-- [x] Account-wide existing risk-to-SL calculation for open positions and pending orders
-- [x] Optional new-trade block when existing exposure has no stop loss
+- [x] Pure loss-room/pre-trade guard model retained for tests and future adapter use
+- [x] Runtime boundary documented: built-in cTrader order submission is not intercepted by the plugin
 - [x] Auto-close all and cancel pending at configured drawdown breach boundary
 - [x] Emergency liquidation retry throttling
 - [x] Persist day-start, peak, and automation state per account
 - [x] Pure guardian/state unit-test suite
 
-Acceptance: guardian formulas are unit-tested against explicit prop-firm rule examples before live use. Exact funded-account use still requires mapping the selected firm's current rule definitions to the configurable engine.
+Acceptance: guardian formulas are unit-tested against explicit prop-firm rule examples before live use. Exact funded-account use still requires mapping the selected firm's current rule definitions to the configurable engine. With built-in cTrader order entry, block state is advisory before submission; active enforcement is limited to post-entry protection and configured hard-breach cleanup.
 
 ## Phase 6 - UI polish
 
@@ -77,7 +75,7 @@ Acceptance: guardian formulas are unit-tested against explicit prop-firm rule ex
 - [x] Produce `PropRiskManager.algo`
 - [x] Upload `PropRiskManager-algo` build artifact
 
-Build run 119 is the first fully green build/test/package pipeline.
+Use the exact-head pull-request workflow run as the merge gate rather than relying on a historical run number.
 
 ## Validation policy
 
@@ -87,4 +85,4 @@ Build run 119 is the first fully green build/test/package pipeline.
 4. Keep prop-firm limits separate from normal trade-risk limits.
 5. Treat automatic close/block behavior as a local safety layer, not a broker/server guarantee.
 6. Never depend on the active chart for account-wide protection state.
-7. Do not merge the draft PR until cTrader Desktop smoke tests pass.
+7. Do not merge a release PR until cTrader Desktop smoke tests pass.

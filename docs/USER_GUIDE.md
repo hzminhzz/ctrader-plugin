@@ -123,15 +123,17 @@ Guardian tracks and displays:
 - static or trailing drawdown references;
 - UTC reset offset and reset hour;
 - account/equity high-water values;
-- new-trade locks;
+- advisory trade-block status for rule breaches;
 - hard-breach emergency cleanup.
+
+Because orders are placed through cTrader's built-in UI, PropRiskManager cannot intercept or reject a new order before submission. Guardian's blocked state is therefore advisory for new entries. Configured hard-drawdown cleanup remains active and can close existing positions and cancel pending orders after a breach is observed.
 
 ### Configure conservatively
 
 1. Set the exact initial-balance reference required by the firm.
 2. Set target, cap, daily DD, total DD, and reset values.
 3. Select static/trailing references according to the account contract.
-4. Test each lock and breach on demo with small limits.
+4. Test each status and breach on demo with small limits.
 
 Guardian is a local desktop safety layer. It cannot guarantee liquidation during disconnection, process shutdown, broker rejection, or machine failure.
 
@@ -288,9 +290,9 @@ Expected: only `PropRiskManager` appears. SPM is embedded in that plugin. Open t
 - Confirm the prior action is reconciled before retrying.
 - Review persisted fired-stage state.
 
-### Guardian blocks or closes positions
+### Guardian reports blocked status or closes positions
 
-Review target, cap, daily/total DD, and safety-buffer settings. Hard drawdown cleanup is a local account-protection action; built-in cTrader order entry remains responsible for order validation.
+Review target, cap, daily/total DD, and reset settings. With built-in cTrader order entry, blocked status is advisory for new submissions; configured hard drawdown cleanup can still close existing positions and cancel pending orders after a breach is observed.
 
 ## 12. Development and verification
 
