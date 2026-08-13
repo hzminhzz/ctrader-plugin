@@ -30,8 +30,11 @@ public sealed partial class PropRiskManagerPlugin : Plugin
     protected override void OnStart()
     {
         BuildTradeExecutionPanel();
+        BuildAdvancedProtectionPanel();
         BuildSmartDashboardPanel();
         BuildPositionManagementPanel();
+        BuildPartialTakeProfitPanel();
+        BuildPartialStopLossPanel();
         BuildPropFirmProtectionPanel();
         BuildPropPreTradePanel();
         BuildTradingStatsPanel();
